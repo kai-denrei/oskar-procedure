@@ -94,6 +94,17 @@ while IFS= read -r f; do
   fi
 done < <(walk_source_files)
 
+# ---------- 4. Bump the service-worker cache token (if sw.js is present) ----------
+# Keying the SW cache name to the token makes a new build a new cache bucket;
+# old buckets are dropped on the SW's activate. Rewrites the CB_TOKEN literal
+# whether it's the placeholder (__CB_TOKEN__) or a prior real token.
+if [[ -f "sw.js" ]]; then
+  sed -i.cbbak -E 's/const CB_TOKEN = "[^"]+"/const CB_TOKEN = "'"${TOKEN}"'"/' sw.js
+  rm -f sw.js.cbbak
+  [[ -z "$QUIET" ]] && echo "  ✓ sw.js CB_TOKEN → ${TOKEN}"
+  REWRITTEN=$((REWRITTEN + 1))
+fi
+
 if [[ -z "$QUIET" ]]; then
   echo ""
   echo "🧛  cache bust complete — token ${TOKEN}"

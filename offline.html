@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>oskar-procedure — offline</title>
+  <meta name="theme-color" content="#14130f">
+  <style>
+    /* Inline — styles.css may not be in cache. House palette baked in. */
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #14130f;        /* --bg */
+      color: #e8e2d4;             /* --ink */
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wrap {
+      text-align: center;
+      padding: 2rem;
+      max-width: 28rem;
+    }
+    .mark {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 1.5rem;
+      display: block;
+    }
+    h1 {
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 600;
+      font-size: 1.5rem;
+      letter-spacing: 0.01em;
+      margin: 0 0 0.5rem;
+      color: #e8e2d4;
+    }
+    .tag {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: #e0a23c;             /* --amber */
+      margin: 0 0 1.5rem;
+    }
+    p {
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #8a8270;            /* --ink-dim */
+      margin: 0 0 1.5rem;
+    }
+    button {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      color: #14130f;
+      background: #e0a23c;        /* --amber */
+      border: none;
+      border-radius: 2px;
+      padding: 0.6rem 0.9rem;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <svg class="mark" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="20" width="40" height="40" fill="none" stroke="#e0a23c" stroke-width="6"/>
+      <rect x="68" y="20" width="40" height="40" fill="none" stroke="#3cc7b8" stroke-width="6"/>
+      <rect x="20" y="68" width="40" height="40" fill="none" stroke="#3cc7b8" stroke-width="6"/>
+      <rect x="68" y="68" width="40" height="40" fill="none" stroke="#e0a23c" stroke-width="6"/>
+    </svg>
+    <h1>oskar-procedure — you're offline</h1>
+    <p class="tag">organic quad grid</p>
+    <p>No network connection. The app shell is cached, so reconnecting and reloading will bring it right back.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+  </div>
+</body>
+</html>

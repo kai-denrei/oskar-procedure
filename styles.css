@@ -168,3 +168,69 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.08em;
   color: var(--ink-dim);
 }
+
+/* ── PWA update toast ────────────────────────────────────────────────────
+   Non-blocking, dismissible "new version available — refresh" notice.
+   Bottom-left so it doesn't collide with the cache-bust badge (bottom-right). */
+.pwa-toast {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  z-index: 2147483646;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100vw - 24px);
+  padding: 0.6rem 0.75rem 0.6rem 0.9rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  border-radius: 4px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  font-family: var(--mono);
+  color: var(--ink);
+  animation: pwa-toast-in 180ms ease-out;
+}
+
+@keyframes pwa-toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.pwa-toast__msg {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.pwa-toast__refresh {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--bg);
+  background: var(--amber);
+  border: none;
+  border-radius: 2px;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+
+.pwa-toast__refresh:hover { filter: brightness(1.08); }
+.pwa-toast__refresh:disabled { opacity: 0.6; cursor: default; }
+
+.pwa-toast__dismiss {
+  font-family: var(--mono);
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--ink-dim);
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.pwa-toast__dismiss:hover { color: var(--ink); filter: none; }
