@@ -21,11 +21,13 @@ state, render2d, controls. Owns the Node test harness for pure-logic invariants.
 <!-- APPEND ONLY. Never delete. -->
 | Date | What was tried | Why it failed / was rejected |
 |---|---|---|
+| 2026-05-27 | Feeding stage-4b CCW-ordered quad corners directly into the closed-form relaxation `alpha`/`target` formula. | The closed form is derived for **clockwise** corner order about the centroid. With raw CCW corners the relaxation *diverges* — mean edge-length variance rose 1.877e-4 → 2.738e-4 (cells got less square). Fix: relax on a CW view `[q0,q3,q2,q1]` and map each per-corner force back to its true CCW vertex index. Post-fix variance ~halved (→9.46e-5). Verified by [[qa]] squareness test. |
 
 ## Lessons
+- A closed-form geometric optimizer carries an implicit corner/winding convention; transcribing the formula without matching the winding silently inverts the objective (diverge instead of converge). Always assert the optimizer *reduces* its error metric, not just that it runs. — from dead end on 2026-05-27
 
 ## Open Questions
-- [ ] Corner ordering fed to the relaxation closed-form: CW (per the derivation) or the stored CCW? Resolve at M1 by testing convergence both ways. — owner: minikai — since: 2026-05-27
+- [x] RESOLVED 2026-05-27: relaxation closed-form needs CW corner order; implementation feeds a CW view and remaps forces to CCW indices. See Dead Ends + [[qa]].
 
 ## Assumptions
 - [assumption] mulberry32 seeded PRNG gives adequate blue-noise variety for regenerate-differs gate. — status: untested — since: 2026-05-27
