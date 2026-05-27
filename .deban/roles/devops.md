@@ -18,6 +18,7 @@ cache-busting + version-confirmation toolkit.
 | 2026-05-27 | `git init` locally; commit at each milestone gate (M0/M1/M2). **No remote push** unless operator asks. | HANDOVER "Commit at each gate". Author = Kai Denrei (kainode convention). No push not requested. | [[pm]] |
 | 2026-05-27 | Serve V1 via a local static server (`python3 -m http.server` or `npx serve`) on localhost. | ES modules can't load over `file://`; localhost is what the operator asked to "look at". | [[arch]] |
 | 2026-05-27 | Public deploy = **GitHub Pages** under the `kai-denrei` account (repo `oskar-procedure`, public). Make all cache-bust asset paths **relative** + broaden `cb-badge.js` selector so the site works under the Pages project base-path `/oskar-procedure/`. Add `.nojekyll`. | gh is authed as kai-denrei (kainode convention); the site is no-build static ESM → Pages serves it directly with zero config. Public repo required for free-tier Pages. Alternatives: Netlify/Vercel (need separate auth) rejected — Pages is zero-friction here. Relative paths over hardcoding `/oskar-procedure/` so the build is base-path-agnostic. | [[arch]] |
+| 2026-05-27 | **PWA by hand** (no Vite/Workbox/npm — the mobile-pwa skill's default stack violates the no-build constraint). Token-keyed `sw.js`, NetworkFirst for app code + CacheFirst for static, consent update-toast, manifest + iOS tags + Chrome-rendered PNG icons. `bust.sh` extended to bump the SW token. | Operator's recurring pain is stale cache; a hand SW keyed to the bust token makes invalidation explicit and reliable rather than pinning old builds. Workbox/Vite rejected: would require a build step (forbidden). Icons via headless Chrome because libcairo/cairosvg is unavailable on this machine. | [[ux]] [[arch]] |
 
 ## Dead Ends
 <!-- APPEND ONLY. Never delete. -->
@@ -27,7 +28,7 @@ cache-busting + version-confirmation toolkit.
 ## Lessons
 
 ## Open Questions
-- [ ] Does the cache-busting service-worker pattern interfere with the iterate-and-reload dev loop (SW serving stale modules during M1 tuning)? May need SW disabled in dev, enabled for the PWA story. — owner: minikai — since: 2026-05-27
+- [x] RESOLVED 2026-05-27: SW does NOT pin stale builds. App code uses **NetworkFirst** (always tries network first → fresh in dev), the cache name is **keyed to the cache-bust token** (`oskar-${CB_TOKEN}`, bumped by `bust.sh`), old caches are deleted on activate, and a **consent toast** gates `skipWaiting`. Verified offline: with the server killed, the warmed profile rendered the full app from cache. Stale-pinning (the usual SW failure mode) is structurally prevented. — owner: minikai — since: 2026-05-27
 
 ## Assumptions
 - [assumption] `python3 -m http.server` serves ES modules with correct `text/javascript` MIME on this machine. — status: untested — since: 2026-05-27
