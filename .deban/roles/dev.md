@@ -38,5 +38,6 @@ Blocked by: [[arch]]
 Feeds into: [[qa]] [[ux]]
 
 ## Session Log
+- 2026-05-28 — H1 hexagon seed. New `src/hex.js` (deterministic hex lattice, `1+3R(R+1)` points). `grid.js` gained a `seedPoints` dispatcher; `generateMesh({seeder:'hex',rings})` reuses stages 2–5; Poisson default byte-for-byte unchanged. View generalized to fit mesh bbox (paint inverse uses it too). Shape selector + Rings slider. 96/96 tests (30 new hex). Delaunay-on-lattice behaved cleanly (no fallback needed).
 - 2026-05-27 — SYNC. Implemented poisson/grid (29 tests) + render2d/controls (animated relax, 3 sliders) + halfedge/dual/state (37 tests). 66/66 green. CW/CCW relaxation dead-end recorded + resolved.
 - 2026-05-27 — INIT. Set test strategy (Node for logic, browser for render). Flagged CW/CCW relaxation question and watertight-midpoint assumption.
