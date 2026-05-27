@@ -19,6 +19,8 @@ spaces, module boundaries, and the no-build/offline constraint.
 | 2026-05-27 | Drop numjs → hand-written `vec.js`. Only third-party dep = `delaunator`, vendored locally as ESM. No runtime CDN. | docs/04: numjs is dead weight (trivial 2D vector ops); CDN import breaks offline/PWA. | [[dev]] [[devops]] |
 | 2026-05-27 | Own half-edge structure built **after** subdivision (stage 3 merge done on plain triangle arrays, as the reference does). | docs/04 recommendation: simpler than maintaining half-edge through the dissolve step; O(1) orbits matter from M2 on (dual extraction, paint). | [[dev]] |
 | 2026-05-27 | Reorganize repo to match README map: spec docs → `docs/`, reference impl → `reference/`. | HANDOVER references `docs/0X` paths that don't currently resolve (files sit at root). Aligns reality to the documented layout; clears root for the app scaffold. | [[devops]] |
+| 2026-05-28 | Hexagon (H1): **pluggable seeder** — extract a `seedPoints` dispatcher in `grid.js` so Poisson and hex feed the same stages 2–5; `generateMesh` stays backward-compatible (default poisson). New `src/hex.js` (deterministic hex-lattice). | The pipeline is already seed-agnostic; the only new code is the seeder. Backward-compat keeps the 66 tests + Poisson UI intact. | [[dev]] |
+| 2026-05-28 | View generalizes from "fit [0,1]²" to **fit mesh bounding-box**, kept behind a small `view` object (bounds + toScreen/fromScreen). H1 ships auto-fit only. | Hex patches live in world units, not [0,1]². The `view` object is the seam a pan/zoom camera (needed for H2 multi-patch) later slots into — without over-building it now (YAGNI). | [[dev]] [[ux]] |
 
 ## Dead Ends
 <!-- APPEND ONLY. Never delete. -->

@@ -35,6 +35,14 @@ viewable live on localhost. M3–M5 (deformed tiles, 3D extrude, WFC) are follow
 - 2026-05-27 — Seed = Poisson (Variant A) for M1; hex (Variant B) is optional toggle. See [[arch]].
 - 2026-05-27 — Cache-busting + 3-shape visual version badge installed at scaffold time. See [[devops]].
 - 2026-05-27 — Execution: lead orchestrates gated worker sub-agents (not one monolithic PM agent). See [[pm]].
+- 2026-05-27 — Shipped public (GitHub Pages) + hand-authored PWA (token-keyed SW, offline-verified). See [[devops]].
+- 2026-05-28 — Next: Hexagon seed (Variant B), scoped H1 (single patch); growth = incremental (H2b) later. Spec: `docs/specs/2026-05-27-hexagon-seed-design.md`. See [[pm]] [[arch]].
+
+## Roadmap (post-V1)
+1. **H1 — single hexagon patch** (spec'd, awaiting operator review of the spec): hex-lattice seeder + pluggable seeder refactor + shape selector + fit-to-bounds view.
+2. **H2 — connected patches** (chosen direction: incremental patch-adding / pinned boundaries). Needs a pan/zoom camera. Spec later.
+3. **H3 — true infinite streaming** (research; only if "literally endless" is wanted).
+4. **3D second tab** — raw-WebGL extrude + basic test shape. Plan/spec later (after hexagon).
 
 ## Open Questions (cross-role)
 - ES modules do not load over `file://` in Chrome/Firefox — V1 needs a static server. The HANDOVER's "ideally file://" is partly unrealistic for module scripts. See [[arch]].
