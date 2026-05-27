@@ -39,6 +39,7 @@
 import Delaunator from '../vendor/delaunator.js';
 import { mulberry32 } from './rng.js';
 import { poissonDisk } from './poisson.js';
+import { hexLattice } from './hex.js';
 import { sub, mean, cross, dot, len, dist } from './vec.js';
 
 // --- constants -------------------------------------------------------------
@@ -217,16 +218,36 @@ function normalizeWinding(vertices, quads) {
   }
 }
 
+// --- stage 1: seed dispatch ------------------------------------------------
+// Produce the input point set for stages 2–5. The pipeline is seed-agnostic:
+// these are just [x,y] points. `rng` is the mulberry32 stream so the Poisson
+// path stays deterministic (the hex path is deterministic by construction and
+// doesn't consume rng — the random dissolve in mergeToQuads does).
+//
+//   seeder 'poisson' -> Bridson Poisson-disk in [0,1]²  (default, unchanged)
+//   seeder 'hex'     -> triangular lattice clipped to a hexagon (Variant B)
+function seedPoints(rng, { seeder = 'poisson', r = 0.1, k = 30, rings = 4, spacing = 0.1 } = {}) {
+  if (seeder === 'hex') {
+    return hexLattice({ rings, spacing }).points;
+  }
+  // default: poisson
+  return poissonDisk(rng, { r, k });
+}
+
 // --- public: generateMesh --------------------------------------------------
-export function generateMesh({ seed = 0, r = 0.1, k = 30 } = {}) {
+// generateMesh({ seed, seeder, r, k, rings, spacing }) -> { vertices, quads, seed, seeder }
+//   seeder === 'poisson' (default): existing Bridson path. Backward-compatible:
+//     generateMesh({ seed }) behaves exactly as before.
+//   seeder === 'hex': hexLattice({ rings, spacing }) then the SAME stages 2–5.
+export function generateMesh({ seed = 0, seeder = 'poisson', r = 0.1, k = 30, rings = 4, spacing = 0.1 } = {}) {
   const rng = mulberry32(seed);
-  const points = poissonDisk(rng, { r, k });
+  const points = seedPoints(rng, { seeder, r, k, rings, spacing });
   const triangles = triangulate(points);
   const { triangles: leftover, prequads } = mergeToQuads(points, triangles, rng);
   const faces = [...leftover, ...prequads];
   const { vertices, quads } = subdivide(points, faces);
   normalizeWinding(vertices, quads);
-  return { vertices, quads, seed };
+  return { vertices, quads, seed, seeder };
 }
 
 // --- stage 5: relaxation ---------------------------------------------------

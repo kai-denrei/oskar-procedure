@@ -118,6 +118,51 @@ button:active { filter: brightness(0.94); }
   letter-spacing: 0.04em;
 }
 
+/* Hidden contextual rows (shape-dependent sliders) */
+.ctrl-row[hidden] { display: none; }
+
+/* ── Shape selector — segmented buttons (Poisson | Hexagon) ──────────────── */
+.seg-group {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.seg-btn {
+  flex: 1 1 0;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0.45rem 0.4rem;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid var(--line);
+}
+
+.seg-btn:hover {
+  color: var(--ink);
+  filter: none;
+}
+
+.seg-btn.seg-active {
+  color: var(--bg);
+  background: var(--amber);
+}
+
+.seg-btn.seg-active:hover {
+  color: var(--bg);
+  filter: brightness(1.08);
+}
+
 /* Range slider — minimal, dark-panel style */
 input[type="range"] {
   -webkit-appearance: none;

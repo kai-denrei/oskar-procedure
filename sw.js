@@ -14,7 +14,7 @@
 // path is RELATIVE to that scope, so it works at localhost root (/) AND under
 // GitHub Pages (/oskar-procedure/).
 
-const CB_TOKEN = "03f1f573";          // bust.sh rewrites this on each build
+const CB_TOKEN = "573d5ed2";          // bust.sh rewrites this on each build
 const CACHE = `oskar-${CB_TOKEN}`;
 
 // App shell — paths relative to the SW scope (repo root). '?v=' tokens are
@@ -32,6 +32,7 @@ const PRECACHE = [
   './src/pwa.js',
   './src/grid.js',
   './src/poisson.js',
+  './src/hex.js',
   './src/rng.js',
   './src/vec.js',
   './src/render2d.js',
@@ -48,7 +49,7 @@ const PRECACHE = [
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon-180.png',
   // current favicon shape (visual cache-bust badge anchor)
-  './cb-shapes/03.svg',
+  './cb-shapes/23.svg',
 ];
 
 // ── install ──────────────────────────────────────────────────────────────

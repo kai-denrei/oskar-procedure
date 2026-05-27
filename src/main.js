@@ -26,15 +26,50 @@ function resize() {
 }
 
 // --- view transform -----------------------------------------------------
+// Fit the current mesh's bounding box into the canvas: centered, aspect-
+// preserved, with `margin` (fraction of the shorter canvas side) of padding.
+// Poisson points live in ≈[0,1]² so the box is ≈unit and behavior is unchanged;
+// a hex patch is centered on the origin in world units, so this frames it too.
+// `fromScreen` is the exact inverse, used by the paint hit-test for BOTH seeders.
+//
+// `currentBBox` is recomputed whenever a mesh is (re)generated. No pan/zoom —
+// auto-fit only (the `view` object shape is the seam a future camera slots into).
+let currentBBox = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
+
+function computeBBox(vertices) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of vertices) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  if (!Number.isFinite(minX)) return { minX: 0, minY: 0, maxX: 1, maxY: 1 };
+  return { minX, minY, maxX, maxY };
+}
+
 export function fitView(margin = 0.06) {
-  const size = Math.min(cssW, cssH) * (1 - 2 * margin);
-  const ox = (cssW - size) / 2;
-  const oy = (cssH - size) / 2;
+  const b = currentBBox;
+  const bw = Math.max(1e-9, b.maxX - b.minX);
+  const bh = Math.max(1e-9, b.maxY - b.minY);
+
+  // Available draw area after margin (margin is a fraction of the shorter side).
+  const avail = Math.min(cssW, cssH) * (1 - 2 * margin);
+  // Uniform scale that fits the box's longer dimension into `avail`.
+  const scale = avail / Math.max(bw, bh);
+
+  // Center the scaled box in the canvas.
+  const drawW = bw * scale;
+  const drawH = bh * scale;
+  const ox = (cssW - drawW) / 2;
+  const oy = (cssH - drawH) / 2;
+
   return {
-    toScreen: (p) => [ox + p[0] * size, oy + p[1] * size],
-    // inverse of toScreen: CSS-pixel -> normalized [0,1]² (used for hit-testing)
-    fromScreen: (px, py) => [(px - ox) / size, (py - oy) / size],
-    scale: size,
+    bounds: b,
+    scale,
+    toScreen: (p) => [ox + (p[0] - b.minX) * scale, oy + (p[1] - b.minY) * scale],
+    // inverse of toScreen: CSS-pixel -> world coords (used for hit-testing)
+    fromScreen: (px, py) => [(px - ox) / scale + b.minX, (py - oy) / scale + b.minY],
   };
 }
 
@@ -61,6 +96,22 @@ const CONVERGENCE_THRESHOLD = 1e-4; // stop early if displacement drops below th
 // NO cells painted). Paints a deterministic subset of interior cells so headless
 // screenshots show filled rounded dual cells.
 const DEMO = typeof location !== 'undefined' && location.search.includes('demo=1');
+
+// URL params let headless screenshots boot a specific seeder/rings deterministically:
+//   ?seeder=hex&rings=4   -> boot in Hexagon mode with 4 rings
+// Parsed once at startup and merged into the initial params (Component 3/4).
+function urlOverrides() {
+  if (typeof location === 'undefined') return {};
+  const q = new URLSearchParams(location.search);
+  const out = {};
+  const seeder = q.get('seeder');
+  if (seeder === 'hex' || seeder === 'poisson') out.seeder = seeder;
+  if (q.has('rings')) {
+    const n = Math.round(Number(q.get('rings')));
+    if (Number.isFinite(n) && n >= 2 && n <= 6) out.rings = n;
+  }
+  return out;
+}
 
 // Build half-edge + dual cells + a fresh corner state from the settled mesh.
 function buildConnectivity() {
@@ -107,13 +158,20 @@ function render() {
 // --- grid generation ----------------------------------------------------
 // Params come from controls; seed is managed here.
 let currentSeed = randomSeed();
-let currentParams = { r: 0.1, pullRate: 0.3, nIters: 100 };
+let currentParams = { seeder: 'poisson', r: 0.1, rings: 4, pullRate: 0.3, nIters: 100 };
 
-function startGrid({ seed, r, pullRate, nIters } = {}) {
+function startGrid({ seed, seeder, r, rings, pullRate, nIters } = {}) {
   currentSeed = seed ?? randomSeed();
   maxFrames = nIters ?? currentParams.nIters;
 
-  currentMesh = generateMesh({ seed: currentSeed, r: r ?? currentParams.r });
+  currentMesh = generateMesh({
+    seed: currentSeed,
+    seeder: seeder ?? currentParams.seeder,
+    r: r ?? currentParams.r,
+    rings: rings ?? currentParams.rings,
+  });
+  // Recompute the fit-to-bounds box for the new mesh (Poisson ≈[0,1]², hex centered).
+  currentBBox = computeBBox(currentMesh.vertices);
   relaxer = makeRelaxer(currentMesh, {
     PULL_RATE: pullRate ?? currentParams.pullRate,
   });
@@ -137,13 +195,14 @@ function startGrid({ seed, r, pullRate, nIters } = {}) {
 }
 
 // --- controls -----------------------------------------------------------
+const initialOverrides = urlOverrides();
 const { getParams } = createControls((params) => {
-  // Slider changed: re-generate with the same seed so user can compare pull-rate
-  // / iter changes, but use a new seed for density (r) changes because the
-  // point layout itself changes. Either way, re-start.
+  // Selector / slider changed: re-generate with the same seed so the user can
+  // compare seeder + param changes against the same dissolve sequence. Either
+  // way, re-start. (Regenerate button below picks a fresh seed instead.)
   currentParams = params;
   startGrid({ seed: currentSeed, ...params });
-});
+}, initialOverrides);
 
 const regenerateBtn = document.getElementById('regenerate');
 regenerateBtn.addEventListener('click', () => {
