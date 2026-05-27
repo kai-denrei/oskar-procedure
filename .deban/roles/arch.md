@@ -24,11 +24,14 @@ spaces, module boundaries, and the no-build/offline constraint.
 <!-- APPEND ONLY. Never delete. -->
 | Date | What was tried | Why it failed / was rejected |
 |---|---|---|
+| 2026-05-27 | Vendoring `delaunator@5/+esm` as a single self-contained file. | The jsDelivr `+esm` bundle is NOT self-contained — it re-imports `orient2d` from a bare CDN path `/npm/robust-predicates@3.0.3/+esm`, which breaks the offline/no-CDN constraint. Fix: vendor `robust-predicates` too and rewrite delaunator's import to `./robust-predicates.js`. Verified loads + triangulates in Node. |
 
 ## Lessons
+- A CDN `+esm` "bundle" can still contain bare external imports — always grep the vendored file for `/npm/` or `from"..."` and confirm zero external imports before trusting it offline. — from dead end on 2026-05-27
 
 ## Open Questions
-- [ ] Does the vendored `delaunator` `/+esm` bundle fully inline `robust-predicates`, or does it leave a bare import that breaks offline? Verify the vendored file has zero further imports. — owner: minikai — since: 2026-05-27
+- [x] RESOLVED 2026-05-27: delaunator `+esm` re-imports robust-predicates from CDN; both now vendored locally, import rewritten to relative path. See Dead Ends.
+- [ ] **Non-manifold pinch vertices** from merge/subdivide (M2 finding): the kernel occasionally creates interior vertices whose incident quads meet at a point only (>1 disjoint fan; 2 on seed 42). Edge-watertight but not strictly 2-manifold. M2's `facesAroundVertex` handles it (multi-fan sweep). Does this need a kernel-level guarantee before M3 tile deformation (tiles assume a clean quad fan)? Defer to M3. — owner: minikai — since: 2026-05-27
 
 ## Assumptions
 - [assumption] `delaunator@5/+esm` is a single self-contained ESM file (deps inlined) → vendorable offline. — status: untested — since: 2026-05-27
