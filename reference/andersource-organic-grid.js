@@ -1,3 +1,17 @@
+/*
+ * PROVENANCE — this file is NOT authored by oskar-procedure.
+ *
+ * It is the reference implementation from andersource's blog post
+ * "Generating an organic grid" (https://andersource.dev/2020/11/06/organic-grid.html),
+ * pulled here unmodified for STUDY and ATTRIBUTION only. Our own M1 grid kernel
+ * (src/poisson.js, src/grid.js) was re-implemented clean from scratch — we did
+ * not copy this code (it is numjs-bound, var/callback style). We were, however,
+ * directly inspired by and learned the closed-form closest-square relaxation
+ * from this work, and we want to be open about that.
+ *
+ * Credit: andersource. Original technique: Oskar Stålberg (Townscaper / Bad North).
+ * Analysis of this file lives in docs/06-reference-impl-analysis.md.
+ */
 window.onload = function() {
   generate_grid();
 

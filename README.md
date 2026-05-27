@@ -65,3 +65,28 @@ M1 is the conceptual core and gates everything. Nail it first. Estimated ~200 li
 - [ ] M0–M5 (not started)
 
 See `HANDOVER.md` to begin building.
+
+## Credits & inspiration
+
+This project stands openly on the shoulders of others. It is a learning
+recreation, and we want the lineage to be clear:
+
+- **Oskar Stålberg** — originator of the organic irregular quad-grid technique
+  behind *Townscaper* and *Bad North* (the triangulate → dissolve → subdivide →
+  relax pipeline, corner-state/dual-grid, and deform-to-fit). His
+  [talk](https://www.youtube.com/watch?v=1hqt8JkYRdI) and devlog are the source
+  of the whole idea. See `oskarstalberg.com`.
+- **andersource** — ["Generating an organic grid"](https://andersource.dev/2020/11/06/organic-grid.html),
+  the cleanest open writeup + a vanilla-JS reference implementation. **Our M1
+  grid kernel was directly inspired by it** — especially the closed-form
+  closest-square relaxation derivation. We re-implemented from scratch (clean ES
+  modules, our own `vec.js`, no numjs) rather than copying, but the debt is real.
+  Their original file is kept verbatim in `reference/` for study and attribution,
+  with a provenance header; our analysis is in `docs/06`.
+- **Delaunator** (Mapbox) — the vendored Delaunay triangulation used in stage 2.
+- Further sources (mxgmn/WFC, Boris the Brave, Red Blob Games, sketchpunklabs,
+  eliemichel/TownBuilder) are annotated in `docs/05-references.md`.
+
+The original technique and the andersource reference are the creative work of
+their authors; this repo is an independent study/recreation, not a claim of
+originality over the method.
