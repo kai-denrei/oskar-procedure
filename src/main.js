@@ -1,13 +1,13 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js';
-import { randomSeed } from './rng.js';
-import { drawMesh, drawDualCells } from './render2d.js';
-import { createControls, setSeedDisplay } from './controls.js';
-import { buildHalfEdge } from './halfedge.js';
-import { extractDualCells, hitTestVertex } from './dual.js';
-import { createState } from './state.js';
+import { generateMesh, makeRelaxer } from './grid.js?v=494b0b7d';
+import { randomSeed } from './rng.js?v=494b0b7d';
+import { drawMesh, drawDualCells } from './render2d.js?v=494b0b7d';
+import { createControls, setSeedDisplay } from './controls.js?v=494b0b7d';
+import { buildHalfEdge } from './halfedge.js?v=494b0b7d';
+import { extractDualCells, hitTestVertex } from './dual.js?v=494b0b7d';
+import { createState } from './state.js?v=494b0b7d';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');

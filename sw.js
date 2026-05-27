@@ -14,7 +14,7 @@
 // path is RELATIVE to that scope, so it works at localhost root (/) AND under
 // GitHub Pages (/oskar-procedure/).
 
-const CB_TOKEN = "37967f92";          // bust.sh rewrites this on each build
+const CB_TOKEN = "494b0b7d";          // bust.sh rewrites this on each build
 const CACHE = `oskar-${CB_TOKEN}`;
 
 // App shell — paths relative to the SW scope (repo root). '?v=' tokens are
@@ -49,7 +49,7 @@ const PRECACHE = [
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon-180.png',
   // current favicon shape (visual cache-bust badge anchor)
-  './cb-shapes/55.svg',
+  './cb-shapes/09.svg',
 ];
 
 // ── install ──────────────────────────────────────────────────────────────
@@ -115,12 +115,15 @@ async function safePut(request, response) {
 // NetworkFirst with a timeout. Tries network (or a provided preload response);
 // on failure/timeout falls back to the cache (ignoreSearch so ?v= mismatches
 // still hit). `fallbackUrl` is a last resort (offline page / shell).
-async function networkFirst(request, { timeoutMs = 3000, preload = null, fallbackUrl = null } = {}) {
+async function networkFirst(request, { timeoutMs = 3000, preload = null, fallbackUrl = null, revalidate = false } = {}) {
   // 1. Try the network (honoring an in-flight navigation-preload response).
+  // `revalidate` forces a fresh fetch that bypasses the HTTP cache — used for
+  // the HTML entry so a new build's fingerprinted module URLs propagate at once
+  // (the entry itself isn't fingerprinted; the modules it imports now are).
   try {
     const netResponse = await (preload
       ? preload
-      : fetchWithTimeout(request, timeoutMs));
+      : fetchWithTimeout(request, timeoutMs, revalidate ? { cache: 'reload' } : undefined));
     if (netResponse) {
       await safePut(request, netResponse);
       return netResponse.clone();
@@ -147,10 +150,10 @@ async function networkFirst(request, { timeoutMs = 3000, preload = null, fallbac
   });
 }
 
-function fetchWithTimeout(request, timeoutMs) {
+function fetchWithTimeout(request, timeoutMs, init) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('network timeout')), timeoutMs);
-    fetch(request).then(
+    fetch(request, init).then(
       (res) => { clearTimeout(timer); resolve(res); },
       (err) => { clearTimeout(timer); reject(err); }
     );
@@ -203,6 +206,7 @@ self.addEventListener('fetch', (event) => {
           timeoutMs: 3000,
           preload: preloadResponse ? Promise.resolve(preloadResponse) : null,
           fallbackUrl: './index.html',
+          revalidate: true, // bypass HTTP cache on the entry so new module URLs land
         });
         if (res && res.status === 503) {
           // total offline + no cached shell → offline page

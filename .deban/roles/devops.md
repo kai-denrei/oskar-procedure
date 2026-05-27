@@ -24,8 +24,10 @@ cache-busting + version-confirmation toolkit.
 <!-- APPEND ONLY. Never delete. -->
 | Date | What was tried | Why it failed / was rejected |
 |---|---|---|
+| 2026-05-28 | Cache-busting that fingerprints only the HTML entry (`main.js?v=`), trusting the SW's NetworkFirst to keep modules fresh. | The ES-module **import graph** (`main.js` imports `./grid.js`, etc.) carried NO `?v=`. With GitHub Pages `max-age=600`, a device ran fresh `index.html` + fresh `main.js` but a **10-min-cached old `grid.js`** → the H1 boundary-pin fix (correct, deployed, 99 tests) didn't reach the operator; the hexagon still relaxed its boundary. SW NetworkFirst doesn't save you: `fetch()` inside the SW still hits the browser HTTP cache. Fix: fingerprint the whole import graph (`scripts/fingerprint-imports.py`, wired into `bust.sh`) so every module is a unique URL per build; plus SW navigation `cache:'reload'` so the entry revalidates and new module URLs propagate at once. |
 
 ## Lessons
+- **Fingerprint the whole module graph, not just the entry.** A no-build ES-module app's `import './x.js'` specifiers are cache keys too — unfingerprinted, a stale module hides behind a fresh entry, and NetworkFirst won't catch it (the SW's own `fetch` reads the HTTP cache). Unique per-build URLs on every module is the only airtight fix. — from dead end on 2026-05-28
 
 ## Open Questions
 - [x] RESOLVED 2026-05-27: SW does NOT pin stale builds. App code uses **NetworkFirst** (always tries network first → fresh in dev), the cache name is **keyed to the cache-bust token** (`oskar-${CB_TOKEN}`, bumped by `bust.sh`), old caches are deleted on activate, and a **consent toast** gates `skipWaiting`. Verified offline: with the server killed, the warmed profile rendered the full app from cache. Stale-pinning (the usual SW failure mode) is structurally prevented. — owner: minikai — since: 2026-05-27

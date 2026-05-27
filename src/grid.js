@@ -36,11 +36,11 @@
 //   "relaxation reduces squareness error" test across several seeds.
 // ---------------------------------------------------------------------------
 
-import Delaunator from '../vendor/delaunator.js';
-import { mulberry32 } from './rng.js';
-import { poissonDisk } from './poisson.js';
-import { hexLattice } from './hex.js';
-import { sub, mean, cross, dot, len, dist } from './vec.js';
+import Delaunator from '../vendor/delaunator.js?v=494b0b7d';
+import { mulberry32 } from './rng.js?v=494b0b7d';
+import { poissonDisk } from './poisson.js?v=494b0b7d';
+import { hexLattice } from './hex.js?v=494b0b7d';
+import { sub, mean, cross, dot, len, dist } from './vec.js?v=494b0b7d';
 
 // --- constants -------------------------------------------------------------
 const MAX_ANGLE = (Math.PI / 2) * 1.65; // ≈ 148.5°, drop slivers ≥ this

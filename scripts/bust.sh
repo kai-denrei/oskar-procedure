@@ -105,6 +105,15 @@ if [[ -f "sw.js" ]]; then
   REWRITTEN=$((REWRITTEN + 1))
 fi
 
+# ---------- 5. Fingerprint the ES module import graph ----------
+# fingerprint-urls.py only touches HTML asset URLs (the entry <script>/<link>).
+# Native module imports inside JS (`from './grid.js'`) carry no ?v=, so a cached
+# old module can be served behind a fresh entry. Stamp every relative .js import
+# with ?v=<token> so each build = unique module URLs (no stale module possible).
+if [[ -f "$SKILL_DIR/scripts/fingerprint-imports.py" ]]; then
+  python3 "$SKILL_DIR/scripts/fingerprint-imports.py" "$TOKEN" --target . $QUIET
+fi
+
 if [[ -z "$QUIET" ]]; then
   echo ""
   echo "🧛  cache bust complete — token ${TOKEN}"
