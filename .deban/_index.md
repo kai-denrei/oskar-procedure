@@ -18,6 +18,9 @@ a seeded PRNG. Ships in gated milestones M0–M5.
 **V1 (this phase) = M0 + M1 + M2** — scaffold, grid kernel, half-edge + dual cells + paint —
 viewable live on localhost. M3–M5 (deformed tiles, 3D extrude, WFC) are follow-on.
 
+**Live:** https://kai-denrei.github.io/oskar-procedure/ (GitHub Pages, public) ·
+**Repo:** https://github.com/kai-denrei/oskar-procedure · V1 shipped 2026-05-27.
+
 ## Active Roles
 - [[pm]] — owner: minikai
 - [[arch]] — owner: minikai
