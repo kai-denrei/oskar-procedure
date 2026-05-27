@@ -164,16 +164,21 @@ function startGrid({ seed, seeder, r, rings, pullRate, nIters } = {}) {
   currentSeed = seed ?? randomSeed();
   maxFrames = nIters ?? currentParams.nIters;
 
+  const effectiveSeeder = seeder ?? currentParams.seeder;
   currentMesh = generateMesh({
     seed: currentSeed,
-    seeder: seeder ?? currentParams.seeder,
+    seeder: effectiveSeeder,
     r: r ?? currentParams.r,
     rings: rings ?? currentParams.rings,
   });
   // Recompute the fit-to-bounds box for the new mesh (Poisson ≈[0,1]², hex centered).
   currentBBox = computeBBox(currentMesh.vertices);
+  // Hex patches must keep a PERFECT hexagon outline: pin the boundary so
+  // relaxation only squares the interior (the boundary is also H2b's stitch seam).
+  // Poisson keeps its natural (unpinned) ragged edge — unchanged behavior.
   relaxer = makeRelaxer(currentMesh, {
     PULL_RATE: pullRate ?? currentParams.pullRate,
+    pinned: effectiveSeeder === 'hex' ? currentMesh.boundary : null,
   });
   frameCount = 0;
   settled = false;

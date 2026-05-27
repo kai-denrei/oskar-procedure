@@ -247,14 +247,15 @@ export function generateMesh({ seed = 0, seeder = 'poisson', r = 0.1, k = 30, ri
   const faces = [...leftover, ...prequads];
   const { vertices, quads } = subdivide(points, faces);
   normalizeWinding(vertices, quads);
-  return { vertices, quads, seed, seeder };
+  const boundary = [...boundaryVertices({ quads })];
+  return { vertices, quads, seed, seeder, boundary };
 }
 
 // --- stage 5: relaxation ---------------------------------------------------
 // Closed-form closest-square fit. See RISK 1 note at top of file: the formula
 // is derived for CLOCKWISE corner order, so we read each (CCW-stored) quad's
 // corners reversed before applying it.
-export function relaxStep(mesh, { SIDE_LENGTH = 0.06, PULL_RATE = 0.3 } = {}) {
+export function relaxStep(mesh, { SIDE_LENGTH = 0.06, PULL_RATE = 0.3, pinned = null } = {}) {
   const { vertices, quads } = mesh;
   const r = SIDE_LENGTH / Math.SQRT2;
 
@@ -295,9 +296,14 @@ export function relaxStep(mesh, { SIDE_LENGTH = 0.06, PULL_RATE = 0.3 } = {}) {
     }
   }
 
-  // apply forces, measure total displacement
+  // apply forces, measure total displacement. PINNED vertices stay fixed: they
+  // anchor the relaxation so the interior squares up against an unchanging
+  // outline. For a hex patch this keeps the boundary a perfect hexagon (relax
+  // happens inside only); it is also the seam H2b uses to stitch patches — a
+  // shared boundary, pinned, so adjacent patches meet without cracks.
   let totalDisp = 0;
   for (let v = 0; v < vertices.length; v++) {
+    if (pinned && pinned.has(v)) continue;
     const dx = forces[v][0] * PULL_RATE;
     const dy = forces[v][1] * PULL_RATE;
     vertices[v][0] += dx;
@@ -307,14 +313,41 @@ export function relaxStep(mesh, { SIDE_LENGTH = 0.06, PULL_RATE = 0.3 } = {}) {
   return totalDisp;
 }
 
+// Boundary vertices = endpoints of edges used by exactly ONE quad (a watertight
+// mesh has 2 quads per interior edge, 1 per boundary edge). Returned by
+// generateMesh as `boundary`. Pin these to relax a hex patch's interior only
+// (perfect-hexagon outline), and as the shared-edge anchor for H2b patches.
+export function boundaryVertices({ quads }) {
+  const count = new Map();
+  for (const q of quads) {
+    for (let i = 0; i < 4; i++) {
+      const a = q[i], b = q[(i + 1) % 4];
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      count.set(key, (count.get(key) || 0) + 1);
+    }
+  }
+  const bset = new Set();
+  for (const [key, c] of count) {
+    if (c === 1) { const [a, b] = key.split('-'); bset.add(+a); bset.add(+b); }
+  }
+  return bset;
+}
+
+function toPinnedSet(pinned) {
+  if (!pinned) return null;
+  return pinned instanceof Set ? pinned : new Set(pinned);
+}
+
 // Stepper: one iteration per call, in place. Returns total displacement.
 export function makeRelaxer(mesh, params = {}) {
-  return { step: () => relaxStep(mesh, params) };
+  const p = { ...params, pinned: toPinnedSet(params.pinned) };
+  return { step: () => relaxStep(mesh, p) };
 }
 
 // Convenience: run all iterations at once (used by tests).
 export function relax(mesh, { n_iters = 100, ...params } = {}) {
+  const p = { ...params, pinned: toPinnedSet(params.pinned) };
   let disp = 0;
-  for (let i = 0; i < n_iters; i++) disp = relaxStep(mesh, params);
+  for (let i = 0; i < n_iters; i++) disp = relaxStep(mesh, p);
   return disp;
 }

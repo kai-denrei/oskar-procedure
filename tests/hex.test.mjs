@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { hexLattice, hexDistance } from '../src/hex.js';
-import { generateMesh, relax } from '../src/grid.js';
+import { generateMesh, relax, boundaryVertices } from '../src/grid.js';
 import { sub, dist } from '../src/vec.js';
 
 const RINGS = [2, 3, 4];
@@ -232,5 +232,46 @@ test('hex pipeline: winding — all quads CCW (positive signed area)', () => {
       signed += cur[0] * nxt[1] - nxt[0] * cur[1];
     }
     assert.ok(signed > 0, `quad should be CCW (signed area ${signed} > 0)`);
+  }
+});
+
+// --- boundary pinning (perfect-hexagon outline) ---------------------------
+test('hex: generateMesh returns boundary vertices (edges used by one quad)', () => {
+  const m = generateMesh({ seeder: 'hex', rings: 4, seed: 3 });
+  assert.ok(Array.isArray(m.boundary) && m.boundary.length > 0, 'boundary array present');
+  // boundary set equals the independently-computed boundary
+  const recomputed = boundaryVertices({ quads: m.quads });
+  assert.equal(m.boundary.length, recomputed.size);
+  for (const v of m.boundary) assert.ok(recomputed.has(v));
+});
+
+test('hex: pinned boundary does NOT move during relaxation; interior does', () => {
+  for (const seed of [1, 7, 42]) {
+    const m = generateMesh({ seeder: 'hex', rings: 4, seed });
+    const before = m.vertices.map((p) => [p[0], p[1]]);
+    relax(m, { n_iters: 100, pinned: m.boundary });
+    const pin = new Set(m.boundary);
+    let movedInterior = 0;
+    for (let v = 0; v < m.vertices.length; v++) {
+      const d = dist(before[v], m.vertices[v]);
+      if (pin.has(v)) {
+        assert.equal(d, 0, `boundary vertex ${v} must stay fixed (moved ${d}) seed ${seed}`);
+      } else if (d > 1e-9) {
+        movedInterior++;
+      }
+    }
+    assert.ok(movedInterior > 0, `interior should relax (seed ${seed})`);
+  }
+});
+
+test('hex: pinned boundary stays a clean hexagon outline (6 straight sides)', () => {
+  // After relax, every boundary vertex still lies on the convex hull of the
+  // boundary (a convex hexagon) — i.e. relaxation didn't push the outline in/out.
+  const m = generateMesh({ seeder: 'hex', rings: 4, seed: 9 });
+  const before = m.boundary.map((v) => [m.vertices[v][0], m.vertices[v][1]]);
+  relax(m, { n_iters: 100, pinned: m.boundary });
+  const after = m.boundary.map((v) => [m.vertices[v][0], m.vertices[v][1]]);
+  for (let i = 0; i < before.length; i++) {
+    assert.equal(dist(before[i], after[i]), 0, 'boundary unchanged by relax');
   }
 });

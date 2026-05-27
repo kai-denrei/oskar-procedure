@@ -22,9 +22,11 @@ state, render2d, controls. Owns the Node test harness for pure-logic invariants.
 | Date | What was tried | Why it failed / was rejected |
 |---|---|---|
 | 2026-05-27 | Feeding stage-4b CCW-ordered quad corners directly into the closed-form relaxation `alpha`/`target` formula. | The closed form is derived for **clockwise** corner order about the centroid. With raw CCW corners the relaxation *diverges* — mean edge-length variance rose 1.877e-4 → 2.738e-4 (cells got less square). Fix: relax on a CW view `[q0,q3,q2,q1]` and map each per-corner force back to its true CCW vertex index. Post-fix variance ~halved (→9.46e-5). Verified by [[qa]] squareness test. |
+| 2026-05-28 | H1 hex relaxation moved ALL vertices, including the boundary → the hexagon outline came out wobbly/rounded (operator flagged: "the hexagon has perfect vertices, algorithms happen inside only"). | A bounded patch's boundary *defines its shape* — it must not relax. Fix: `boundaryVertices` (edges used by 1 quad) + a `pinned` set in the relaxer; hex pins its boundary so only the interior squares. Outline now crisp (6 straight sides). Bonus: this pinned-boundary is exactly the seam H2b needs to stitch patches. |
 
 ## Lessons
 - A closed-form geometric optimizer carries an implicit corner/winding convention; transcribing the formula without matching the winding silently inverts the objective (diverge instead of converge). Always assert the optimizer *reduces* its error metric, not just that it runs. — from dead end on 2026-05-27
+- A bounded procedural patch has two vertex classes: **interior** (relax freely) and **boundary** (defines the shape — pin it). Relaxing the boundary destroys the intended outline; pinning it is also what lets independent patches stitch seamlessly. — from dead end on 2026-05-28
 
 ## Open Questions
 - [x] RESOLVED 2026-05-27: relaxation closed-form needs CW corner order; implementation feeds a CW view and remaps forces to CCW indices. See Dead Ends + [[qa]].
