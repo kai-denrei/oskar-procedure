@@ -42,7 +42,8 @@ viewable live on localhost. M3–M5 (deformed tiles, 3D extrude, WFC) are follow
 1. **H1 — single hexagon patch** ✅ DONE 2026-05-28: `src/hex.js` lattice seeder + pluggable `seedPoints` refactor + Poisson|Hexagon selector + Rings slider + fit-to-bounds view. 96/96 tests (66 regression + 30 hex). Paint stack works on hex. Shipped to main.
 2. **H2 — connected patches** (chosen direction: incremental patch-adding / pinned boundaries). Needs a pan/zoom camera. Spec later.
 3. **H3 — true infinite streaming** (research; only if "literally endless" is wanted).
-4. **3D second tab** — raw-WebGL extrude + basic test shape. Plan/spec later (after hexagon).
+4. **3D tab — isometric grid "floor"** (Canvas2D iso, NOT WebGL — operator's call). Spec'd: `docs/specs/2026-05-28-3d-floor-tab-design.md` (awaiting review). Shared mesh across a 2D|3D tab; grid as a tilted ground plane.
+5. **3D structures** (deferred, research): corner-state in 3D — 2⁸=256 configs → ~15 marching-cubes canonical families, trilinear-deformed, dovetailing. Separate spec. Sits on the floor from (4).
 
 ## Open Questions (cross-role)
 - ES modules do not load over `file://` in Chrome/Firefox — V1 needs a static server. The HANDOVER's "ideally file://" is partly unrealistic for module scripts. See [[arch]].
