@@ -33,4 +33,5 @@ Blocked by: [[dev]]
 Feeds into:
 
 ## Session Log
+- 2026-05-27 — SYNC. Dark editorial style implemented (serif/mono system fallbacks, amber/teal on dark, thin low-contrast strokes); 3 live sliders + seed readout + painted teal dual cells shipped. Web fonts still system-fallback (offline-safe); vendoring Fraunces/EB Garamond/IBM Plex Mono remains a polish step.
 - 2026-05-27 — INIT. Captured house style + controls intent. Flagged offline web-font sourcing.

@@ -38,4 +38,5 @@ Blocked by: [[arch]]
 Feeds into: [[qa]] [[ux]]
 
 ## Session Log
+- 2026-05-27 — SYNC. Implemented poisson/grid (29 tests) + render2d/controls (animated relax, 3 sliders) + halfedge/dual/state (37 tests). 66/66 green. CW/CCW relaxation dead-end recorded + resolved.
 - 2026-05-27 — INIT. Set test strategy (Node for logic, browser for render). Flagged CW/CCW relaxation question and watertight-midpoint assumption.

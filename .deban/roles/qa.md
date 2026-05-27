@@ -38,4 +38,5 @@ Blocked by: [[dev]]
 Feeds into: [[pm]]
 
 ## Session Log
+- 2026-05-27 — SYNC. M0/M1/M2 gates all passed (machine invariants + headless-Chrome screenshots). 66/66 Node tests. Pinch-vertex caveat on the dual-tiling gate noted; live click-paint is the operator's visual gate.
 - 2026-05-27 — INIT. Captured M0/M1/M2 gates from HANDOVER; split machine vs human verification.

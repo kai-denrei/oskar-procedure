@@ -42,4 +42,5 @@ Blocked by:
 Feeds into: [[dev]] [[qa]] — gate verification gates each milestone advance.
 
 ## Session Log
+- 2026-05-27 — SYNC. V1 (M0+M1+M2) shipped + verified (66/66 tests, headless screenshots). Resolved relaxation CW/CCW question; dual-tiling question partly resolved (pinch-vertex caveat). Decided to deploy public via GitHub Pages ([[devops]]).
 - 2026-05-27 — INIT. Read 9 spec docs. Scoped V1=M0+M1+M2. Challenged brief: 5 open questions (file:// vs modules, CW/CCW relaxation mismatch, dual-cell simplicity, point-count tuning, saddle convention). Chose orchestrator+gated-workers execution model.

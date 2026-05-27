@@ -22,12 +22,16 @@
   // Falls back to "/cb-shapes/" + ".svg" only when no such link exists.
   let cellPrefix = "/cb-shapes/";
   let cellExt = ".svg";
+  // Match both absolute ("/cb-shapes/..") and relative ("cb-shapes/..") hrefs,
+  // so the badge resolves whether the site is served at root (localhost) or
+  // under a base path (GitHub Pages project site /<repo>/). Relative prefix
+  // resolves against the document URL, which is correct in both cases.
   const fav = document.querySelector(
-    'link[rel~="icon"][href*="/cb-shapes/"]'
+    'link[rel~="icon"][href*="cb-shapes/"]'
   );
   if (fav) {
     const href = fav.getAttribute("href") || "";
-    const m = href.match(/^(.*\/cb-shapes\/)\d{2}\.(svg|webp)(\?.*)?$/);
+    const m = href.match(/^(.*?cb-shapes\/)\d{2}\.(svg|webp)(\?.*)?$/);
     if (m) {
       cellPrefix = m[1];
       cellExt = "." + m[2];

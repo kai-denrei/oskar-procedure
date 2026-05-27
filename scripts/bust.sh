@@ -84,10 +84,12 @@ CELL=$(( B0 % 64 ))
 FAVICON=$(printf "%02d" $CELL)
 
 while IFS= read -r f; do
-  if grep -qE '/cb-shapes/[0-9]{2}\.(webp|svg)' "$f"; then
-    sed "${SED_INPLACE[@]}" -E "s#/cb-shapes/[0-9]{2}(\.(webp|svg))#/cb-shapes/${FAVICON}\1#g" "$f"
+  # Slash-optional so relative ("cb-shapes/NN.svg") and absolute
+  # ("/cb-shapes/NN.svg") favicon hrefs both keep getting re-bumped.
+  if grep -qE 'cb-shapes/[0-9]{2}\.(webp|svg)' "$f"; then
+    sed "${SED_INPLACE[@]}" -E "s#cb-shapes/[0-9]{2}(\.(webp|svg))#cb-shapes/${FAVICON}\1#g" "$f"
     rm -f "${f}.cbbak"
-    [[ -z "$QUIET" ]] && echo "  ✓ favicon → /cb-shapes/${FAVICON} in $f"
+    [[ -z "$QUIET" ]] && echo "  ✓ favicon → cb-shapes/${FAVICON} in $f"
     REWRITTEN=$((REWRITTEN + 1))
   fi
 done < <(walk_source_files)

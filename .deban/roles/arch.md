@@ -42,4 +42,5 @@ Blocked by:
 Feeds into: [[dev]]
 
 ## Session Log
+- 2026-05-27 — SYNC. delaunator +esm bare-import dead-end (vendored robust-predicates, rewrote import). Non-manifold pinch-vertex finding at M2. Stack held: vanilla ESM, no build, vendored deps, half-edge after subdivision.
 - 2026-05-27 — INIT. Locked stack per docs/04. Decided Poisson-first, vec.js over numjs, vendored delaunator, half-edge-after-subdivision, repo reorg to docs/+reference/.
