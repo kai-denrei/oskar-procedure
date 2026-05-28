@@ -1,19 +1,19 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=54e16ae8';
-import { randomSeed } from './rng.js?v=54e16ae8';
-import { drawMesh, drawDualCells } from './render2d.js?v=54e16ae8';
-import { createControls, setSeedDisplay } from './controls.js?v=54e16ae8';
-import { buildHalfEdge } from './halfedge.js?v=54e16ae8';
-import { extractDualCells, hitTestVertex } from './dual.js?v=54e16ae8';
-import { createState } from './state.js?v=54e16ae8';
-import { initTabs } from './tabs.js?v=54e16ae8';
-import { createHeights } from './structures/heights.js?v=54e16ae8';
-import { BIOMES, getBiome } from './structures/biomes.js?v=54e16ae8';
-import { generateDecorations } from './structures/decorations.js?v=54e16ae8';
-import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange } from './gl/view3d.js?v=54e16ae8';
-import { createTerrainControls } from './gl/terrain-controls.js?v=54e16ae8';
+import { generateMesh, makeRelaxer } from './grid.js?v=faca1ff4';
+import { randomSeed } from './rng.js?v=faca1ff4';
+import { drawMesh, drawDualCells } from './render2d.js?v=faca1ff4';
+import { createControls, setSeedDisplay } from './controls.js?v=faca1ff4';
+import { buildHalfEdge } from './halfedge.js?v=faca1ff4';
+import { extractDualCells, hitTestVertex } from './dual.js?v=faca1ff4';
+import { createState } from './state.js?v=faca1ff4';
+import { initTabs } from './tabs.js?v=faca1ff4';
+import { createHeights } from './structures/heights.js?v=faca1ff4';
+import { BIOMES, getBiome } from './structures/biomes.js?v=faca1ff4';
+import { generateDecorations } from './structures/decorations.js?v=faca1ff4';
+import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange } from './gl/view3d.js?v=faca1ff4';
+import { createTerrainControls } from './gl/terrain-controls.js?v=faca1ff4';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
