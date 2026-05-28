@@ -12,7 +12,7 @@ import { OBJECTS } from '../structures/objects.js';
 
 export function createMapEditControls(handlers = {}) {
   const aside = document.getElementById('map-edit-controls');
-  if (!aside) return { setMode() {} };
+  if (!aside) return { reset() {} };
   aside.innerHTML = '';
   const onTool = handlers.onTool || (() => {});
   const onExit = handlers.onExit || (() => {});
