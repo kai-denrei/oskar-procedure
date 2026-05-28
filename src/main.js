@@ -604,7 +604,10 @@ setMapOnFocusChange((tile) => {
   const editing = !!tile;
   boardPanel.hidden = editing;
   editPanel.hidden = !editing;
-  if (editing) setMapTool({ mode: 'sculpt', dir: +1, objectId: null });
+  if (editing) {
+    setMapTool({ mode: 'sculpt', dir: +1, objectId: null });
+    mapEditUI.reset();
+  }
 });
 
 // Esc exits focus.

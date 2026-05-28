@@ -3,9 +3,10 @@
 // .seg-*). Phase-1 widgets: a Raise/Lower toggle and a "← Board" exit button.
 // (Phase 2 adds the object palette to the same panel.)
 //
-//   createMapEditControls({ onTool, onExit }) -> { setMode }
+//   createMapEditControls({ onTool, onExit }) -> { reset }
 //     onTool({ mode, dir, objectId })  fires when a widget changes the tool
 //     onExit()                          "← Board" clicked
+//     reset()                           restores Raise selection (dir=+1), no onTool fired
 
 export function createMapEditControls(handlers = {}) {
   const aside = document.getElementById('map-edit-controls');
@@ -48,12 +49,18 @@ export function createMapEditControls(handlers = {}) {
     });
     return b;
   };
-  group.appendChild(mk('Raise', +1));
-  group.appendChild(mk('Lower', -1));
+  const raiseBtn = mk('Raise', +1);
+  const lowerBtn = mk('Lower', -1);
+  group.appendChild(raiseBtn);
+  group.appendChild(lowerBtn);
   row.appendChild(group);
   aside.appendChild(row);
 
-  return {
-    setMode() { /* Phase 2: reflect palette selection */ },
-  };
+  function reset() {
+    dir = +1;
+    raiseBtn.classList.add('seg-active');
+    lowerBtn.classList.remove('seg-active');
+  }
+
+  return { reset };
 }
