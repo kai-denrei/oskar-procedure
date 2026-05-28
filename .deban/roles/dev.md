@@ -2,7 +2,7 @@
 role: dev
 owner: minikai
 status: active
-last-updated: 2026-05-27
+last-updated: 2026-05-28
 ---
 
 # Development
@@ -28,6 +28,7 @@ state, render2d, controls. Owns the Node test harness for pure-logic invariants.
 - A closed-form geometric optimizer carries an implicit corner/winding convention; transcribing the formula without matching the winding silently inverts the objective (diverge instead of converge). Always assert the optimizer *reduces* its error metric, not just that it runs. — from dead end on 2026-05-27
 - A bounded procedural patch has two vertex classes: **interior** (relax freely) and **boundary** (defines the shape — pin it). Relaxing the boundary destroys the intended outline; pinning it is also what lets independent patches stitch seamlessly. — from dead end on 2026-05-28
 - The `[hidden]` attribute hides only if no higher-specificity rule sets `display`. A mobile media query's `#id { display: flex }` (ID specificity) silently beat `.view[hidden] { display:none }`, so a "hidden" tab view bled over the active one — but only on mobile. Give the hide rule `!important` (the one place it's justified: hidden must always win), and verify EVERY view-state × breakpoint, not just the default tab. — from a tab-overlap bug on 2026-05-28
+- A unit test that asserts a geometric invariant on the *inputs* to a pipeline does NOT verify the *output*. `hexmap.test.mjs`'s "neighboring patches share a full edge" test built patches from the raw `hexLattice` points — but the rendered tiles go through generateMesh (triangulate→merge→subdivide→relax-pinned) first. The test passed while telling us nothing about the thing on screen. It happened to be fine (a Node diagnostic on the *rendered* patches confirmed exact boundary coincidence), but assert the invariant on the SAME artifact you ship. — from verifying the hexagon map on 2026-05-28
 
 ## Open Questions
 - [x] RESOLVED 2026-05-27: relaxation closed-form needs CW corner order; implementation feeds a CW view and remaps forces to CCW indices. See Dead Ends + [[qa]].
@@ -41,6 +42,7 @@ Blocked by: [[arch]]
 Feeds into: [[qa]] [[ux]]
 
 ## Session Log
+- 2026-05-28 — RESUME → SHIP Hexagon Map. Verified the WIP (gap-free tiling PROVEN by a rendered-patch boundary diagnostic; 179/179; radius 1/2/3 render; retype works; other tabs unregressed), merged feat/hexagon-map → main (789f39d), re-busted token → f9d2abf8 (9c8f8a9), pushed + Pages-deployed (live confirmed). NO code changes were needed — the WIP was correct as written; the "gap" suspicion was a render/biome illusion (quarry pits + random per-load seed), not a bug.
 - 2026-05-28 — Decoration bounds fix (forest trees + swamp reeds skip boundary cells + inradius-clamp). 3D tile-centering fix (true-bounds reframe via requestView3dReframe; unified the two competing framing paths). Hexagon Map MAP-1+2 BUILT but cut by usage limit before commit/verify — WIP preserved on branch `feat/hexagon-map` (9f00751): hexmap.js + map-view.js + map-controls.js + hexmap.test.mjs, 179/179 tests, NOT visually verified, NOT merged. See _index RESUME POINT.
 - 2026-05-28 — H1 hexagon seed. New `src/hex.js` (deterministic hex lattice, `1+3R(R+1)` points). `grid.js` gained a `seedPoints` dispatcher; `generateMesh({seeder:'hex',rings})` reuses stages 2–5; Poisson default byte-for-byte unchanged. View generalized to fit mesh bbox (paint inverse uses it too). Shape selector + Rings slider. 96/96 tests (30 new hex). Delaunay-on-lattice behaved cleanly (no fallback needed).
 - 2026-05-27 — SYNC. Implemented poisson/grid (29 tests) + render2d/controls (animated relax, 3 sliders) + halfedge/dual/state (37 tests). 66/66 green. CW/CCW relaxation dead-end recorded + resolved.

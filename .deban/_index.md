@@ -8,33 +8,30 @@ stale_threshold_days: 30
 
 # oskar-procedure — Index
 
-## ⚠ RESUME POINT (2026-05-28, session cut by usage limit)
+## ✅ Hexagon Map SHIPPED (2026-05-28 — resume point resolved)
 
-**Where progress stopped:** mid the **Hexagon Map** build (MAP-1 + MAP-2). The dispatched
-agent hit the session limit *after* writing the code but *before* committing or
-visually verifying.
+The **Hexagon Map** (MAP-1 board + MAP-2 right-click retype) is **verified, merged, and
+live**. Resumed the WIP from `feat/hexagon-map` (9f00751): visually verified, re-busted,
+merged to main (`789f39d`), token re-unified to `f9d2abf8` (`9c8f8a9`), pushed + deployed.
 
-**State — preserved on branch `feat/hexagon-map` (commit `9f00751`, pushed to origin):**
-- **Code-complete + 179/179 Node tests pass** (+12 new `hexmap` tests). New files:
-  `src/structures/hexmap.js` (honeycomb layout + gap-free tiling), `src/gl/map-view.js`,
-  `src/gl/map-controls.js`, `tests/hexmap.test.mjs`. Wired: `index.html` (Map tab +
-  `#view-map`), `tabs.js` (`#map` route), `main.js`, `sw.js` (working-tree token `d5410cfc`).
-- **NOT done:** visual verification (does the WebGL board render — 19 tiles abut gap-free,
-  biomes mixed, centered, water surround; does right-click→retype work?), and **NOT merged to main**.
-- `main` is clean at `9846baf` (3D tile-centering fix, token `013d47e9`), fully pushed + live.
-
-**To resume (fresh session):**
-1. `git checkout feat/hexagon-map` (the WIP is there).
-2. Serve (`python3 -m http.server 8777`) + **direct** `--screenshot` (GL flags:
-   `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --disable-gpu-sandbox`;
-   **one screenshot at a time** — back-to-back Chromes flake SwiftShader to blank) of
-   `http://127.0.0.1:8777/?demo=1#map`, plus `?radius=1` / `?radius=3`. Verify tiles abut
-   gap-free, biomes are mixed, the board is centered, water surrounds it, and right-click a
-   tile opens the biome picker + retypes.
-3. Fix any visual issues; confirm Grid/3D/About unregressed.
-4. Merge `feat/hexagon-map` → main, re-bust (unify token), push.
-- Spec: `docs/specs/2026-05-28-hexagon-map-design.md`. Key risk to check: honeycomb tiling
-  geometry (adjacent tile centers must be `Rc·√3` apart — the unit test asserts it; confirm visually too).
+**Verification done this session (the prior session only got to code-complete):**
+- **Gap-free tiling — the flagged #1 risk — PROVEN.** A Node diagnostic on the *actual
+  rendered* patches (generateMesh hex → relax pinned → translate) showed adjacent tiles'
+  boundary vertices coincide **exactly** (0.000000 cross-patch gap; 7 shared nodes per edge;
+  patch radial min=apothem 0.25981, max=Rc 0.30000). The honeycomb math (pitch `Rc·√3`) is
+  correct. NOTE: `hexmap.test.mjs`'s "patches share a full edge" test only checks the **raw
+  `hexLattice` points**, not the rendered mesh — the diagnostic closed that gap.
+- 179/179 Node tests pass (post-merge + post-bust).
+- Board renders at radius 1/2/3 (7/19/37 tiles), biomes mixed, water surround, centered
+  (direct WebGL `--screenshot`). The radius-1 "central hole" first read as a gap was just a
+  low/pit center tile — geometry is sound; a *real* water hole (forced retype→water) looks
+  like a clean hex sea-cutout.
+- Right-click retype works end-to-end via the DEMO `?retype=q,r,biome` hook (center→water
+  gave a clean hexagonal open-sea hole — exercises pick→setBiome→rebuild + the water path).
+- Grid / 3D / About tabs unregressed; tab highlighting **DOM-verified** correct (a screenshot
+  read of the tab underline was wrong — same screenshot-misread trap as the badge token; the
+  `--dump-dom` aria-selected check is authoritative).
+- Spec: `docs/specs/2026-05-28-hexagon-map-design.md`.
 
 ## Brief
 A local, from-scratch, vanilla-ES-module recreation of Oskar Stålberg's organic
@@ -76,7 +73,7 @@ viewable live on localhost. M3–M5 (deformed tiles, 3D extrude, WFC) are follow
    - **3D tab variation** (2026-05-28): reworked into a **fixed-isometric (orthographic) terrain playground** — orbit removed, camera locked to true iso; panel with Zoom / Orientation (N/E/S/W) / Randomize / Height / Roughness / Flatten; procedural value-noise terrain + drag-to-build. Shares the per-vertex height field (corner-state intact). `src/structures/terrain.js`, `src/gl/terrain-controls.js`, ortho camera.
    - **Biomes + decorations + pan** (2026-05-28): 6 biomes (`src/structures/biomes.js`) — Dunes (amber sine waves), Mountains (grey ridged), Forest (green + cone-trees), Meadows (low green + flowers + ponds), Swamps (water plane + olive hummocks), Quarry (terracotta terraced pit). Lite decorations (`src/structures/decorations.js`: trees/flowers/ponds/water/reeds). Camera-centering fix (frames z-range, no clip). WASD + two-finger pan; wheel/pinch zoom kept. 160/160 tests.
    - M3D-2 (MC reduction + trilinear, placeholder meshes) → M3D-3 (15 authored tiles) → M3D-4 (specials + WFC) — open (tiles deform onto the terrain columns).
-6. **Hexagon Map** (Catan board) — **WIP on branch `feat/hexagon-map` (commit 9f00751, code-complete, 179 tests pass, NOT visually verified, NOT merged)** — see ⚠ RESUME POINT at top. New **Map tab**: board of distinct abutting biome hex-tiles (default 19 = radius-2, configurable), per-tile unique grids, water surround, right-click-a-tile→change biome. Tiles abut gap-free thanks to the pinned regular-hexagon boundary. Spec: `docs/specs/2026-05-28-hexagon-map-design.md`. MAP-1 (board) + MAP-2 (retype).
+6. **Hexagon Map** (Catan board) ✅ **DONE + LIVE 2026-05-28** (merge `789f39d`, bust `9c8f8a9`, token `f9d2abf8`). New **Map tab**: board of distinct abutting biome hex-tiles (default 19 = radius-2; 7/19/37 by radius slider), per-tile unique grids, flat sea-plane surround, right-click-a-tile→biome picker (incl. Water = open-sea hole). Tiles abut gap-free (pinned regular-hexagon boundary; pitch `Rc·√3`) — **proven** via a rendered-patch boundary-coincidence diagnostic. `src/structures/hexmap.js` + `src/gl/{map-view,map-controls}.js` + `tests/hexmap.test.mjs`. Spec: `docs/specs/2026-05-28-hexagon-map-design.md`. MAP-1 (board) + MAP-2 (retype).
 
 ## Future features (backlog)
 - **Seamless-mesh tiles** — stitch adjacent hex tiles' shared boundaries into one continuous landscape (the original "infinite irregular quad grid" idea). Deferred in favor of the distinct-tile Catan board; revisit after the Map ships. Needs shared-boundary vertex dedup + joint/pinned relaxation across tiles. (Operator: "log it as a potential feature.")
