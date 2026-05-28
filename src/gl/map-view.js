@@ -217,7 +217,6 @@ let focusGeom = null;            // its cached renderable geometry
 let onFocusChange = null;        // (tile|null) => void — main.js swaps the panel
 export function setMapOnFocusChange(cb) { onFocusChange = cb; }
 export function isFocused() { return focusedTile != null; }
-export function getFocusedTile() { return focusedTile; }
 
 function rebuildFocus() {
   if (!focusedTile || !liveMap) return;
@@ -225,7 +224,6 @@ function rebuildFocus() {
   const g = buildFocusGeometry(focusedTile, mesh);
   focusGeom = g;
   if (renderer) renderer.setGeometry(g);
-  if (camera) camera.frameBounds(g.bounds);
 }
 
 export function enterFocus(tile) {
@@ -235,6 +233,7 @@ export function enterFocus(tile) {
   bakeIfNeeded(tile, tileMesh(tile, liveMap));
   focusedTile = tile;
   rebuildFocus();
+  if (camera && focusGeom) camera.frameBounds(focusGeom.bounds);
   if (onFocusChange) onFocusChange(tile);
   return true;
 }

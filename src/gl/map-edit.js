@@ -181,7 +181,7 @@ export function buildFocusGeometry(tile, mesh) {
   const e = bakeIfNeeded(tile, mesh); // idempotent — safe; removes the hidden "must bake first" precondition
   const biome = getBiome(tile.biomeId);
   for (const o of e.objects) {
-    if (Number.isInteger(o.cell)) {
+    if (Number.isInteger(o.cell) && o.type !== 'water' && o.type !== 'pond') {
       o.z = cellTopHeight(mesh, o.cell, e.heights) * FLOOR_H;
     }
   }

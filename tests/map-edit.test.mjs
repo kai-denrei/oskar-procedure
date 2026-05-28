@@ -157,3 +157,12 @@ test('eraseAt is a no-op when nothing is within radius', () => {
   assert.equal(tile.edit.objects.length, 1);
   assert.equal(tile.edit.epoch, 5);
 });
+
+test('placeObject clamps placement inside the cell (0.8·inradius)', () => {
+  const tile = { biomeId: 'meadows', seed: 1, edit: { heights: [0,0,0,0,0,0], objects: [], epoch: 1 } };
+  const ok = placeObject(tile, 'rock', mesh, [0.95, 0.5]); // offset 0.45 from centroid (0.5,0.5); lim=0.4
+  assert.equal(ok, true);
+  const o = tile.edit.objects[0];
+  assert.ok(Math.abs(o.x - 0.9) < 1e-6, `x clamped to 0.9, got ${o.x}`);
+  assert.ok(Math.abs(o.y - 0.5) < 1e-6, `y stays 0.5, got ${o.y}`);
+});
