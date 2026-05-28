@@ -31,9 +31,9 @@
 //   }
 //   tiles: [{ q, r, center:[x,y], biomeId, seed }]  — count = 1 + 3·R·(R+1)
 
-import { hexDistance } from '../hex.js?v=a0f69c78';
-import { BIOMES } from './biomes.js?v=a0f69c78';
-import { mulberry32 } from '../rng.js?v=a0f69c78';
+import { hexDistance } from '../hex.js?v=95363b74';
+import { BIOMES } from './biomes.js?v=95363b74';
+import { mulberry32 } from '../rng.js?v=95363b74';
 
 const SQRT3 = Math.sqrt(3);
 
