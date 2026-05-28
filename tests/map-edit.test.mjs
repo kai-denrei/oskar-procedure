@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cellAt, cellCentroid, cellInradius, cellTopHeight, bakeIfNeeded, sculpt } from '../src/gl/map-edit.js';
+import { cellAt, cellCentroid, cellInradius, cellTopHeight, bakeIfNeeded, sculpt, buildFocusGeometry, FLOOR_H } from '../src/gl/map-edit.js';
 import { generateMesh, relax } from '../src/grid.js';
 
 function patch(seed) {
@@ -84,4 +84,29 @@ test('baked objects carry a cell index (so they can ride terrain)', () => {
   for (const o of objects) {
     assert.ok(Number.isInteger(o.cell) && o.cell >= 0, `object cell set (${o.type})`);
   }
+});
+
+test('buildFocusGeometry returns non-empty, finite geometry for an edited tile', () => {
+  const tile = { biomeId: 'meadows', seed: 7, edit: null };
+  const m = patch(tile.seed);
+  bakeIfNeeded(tile, m);
+  sculpt(tile, 0, +1, tile.editMax || 7, m); // raise a cell so a column exists
+  const g = buildFocusGeometry(tile, m);
+  assert.ok(g.triangleCount > 0, 'has triangles');
+  assert.ok(g.positions.every(Number.isFinite), 'finite positions');
+  assert.ok(g.normals.every(Number.isFinite), 'finite normals');
+});
+
+test('objects ride terrain: an object z follows its cell top after sculpt', () => {
+  const tile = { biomeId: 'forest', seed: 7, edit: null };
+  const m = patch(tile.seed);
+  const edit = bakeIfNeeded(tile, m);
+  // force one tree object on cell 0 at z=0, and reset cell 0 heights to 0
+  // so that sculpt +1 brings cell 0 to exactly height 1 (plan: "cell 0 now height 1")
+  for (const vi of m.quads[0]) edit.heights[vi] = 0;
+  edit.objects = [{ type: 'tree', cell: 0, x: cellCentroid(m,0)[0], y: cellCentroid(m,0)[1], z: 0,
+                    trunkRadius: 0.005, trunkHeight: 0.02, canopyRadius: 0.02, canopyHeight: 0.04 }];
+  sculpt(tile, 0, +1, 7, m);          // cell 0 now height 1
+  buildFocusGeometry(tile, m);         // refreshes object z in place
+  assert.equal(edit.objects[0].z, 1 * FLOOR_H, 'tree z lifted to cell top');
 });

@@ -119,3 +119,20 @@ export function sculpt(tile, cellIdx, dir, maxHeight, mesh) {
   e.epoch++;
   return target;
 }
+
+// Refresh each object's z to its cell's current surface top (objects ride
+// terrain) and build the focused tile's geometry, centered at the tile's own
+// origin (NOT translated to tile.center — the board view does that).
+export function buildFocusGeometry(tile, mesh) {
+  const e = tile.edit;
+  const biome = getBiome(tile.biomeId);
+  for (const o of e.objects) {
+    if (Number.isInteger(o.cell)) {
+      o.z = cellTopHeight(mesh, o.cell, e.heights) * FLOOR_H;
+    }
+  }
+  return buildSceneGeometry(
+    { mesh, heights: heightsView(e.heights), decorations: e.objects, biome },
+    { floorH: FLOOR_H, amplitude: biome.maxHeight }
+  );
+}
