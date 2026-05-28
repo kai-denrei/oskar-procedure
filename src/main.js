@@ -1,19 +1,19 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=086a836c';
-import { randomSeed } from './rng.js?v=086a836c';
-import { drawMesh, drawDualCells } from './render2d.js?v=086a836c';
-import { createControls, setSeedDisplay } from './controls.js?v=086a836c';
-import { buildHalfEdge } from './halfedge.js?v=086a836c';
-import { extractDualCells, hitTestVertex } from './dual.js?v=086a836c';
-import { createState } from './state.js?v=086a836c';
-import { initTabs } from './tabs.js?v=086a836c';
-import { createHeights } from './structures/heights.js?v=086a836c';
-import { BIOMES, getBiome } from './structures/biomes.js?v=086a836c';
-import { generateDecorations } from './structures/decorations.js?v=086a836c';
-import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange } from './gl/view3d.js?v=086a836c';
-import { createTerrainControls } from './gl/terrain-controls.js?v=086a836c';
+import { generateMesh, makeRelaxer } from './grid.js?v=54e16ae8';
+import { randomSeed } from './rng.js?v=54e16ae8';
+import { drawMesh, drawDualCells } from './render2d.js?v=54e16ae8';
+import { createControls, setSeedDisplay } from './controls.js?v=54e16ae8';
+import { buildHalfEdge } from './halfedge.js?v=54e16ae8';
+import { extractDualCells, hitTestVertex } from './dual.js?v=54e16ae8';
+import { createState } from './state.js?v=54e16ae8';
+import { initTabs } from './tabs.js?v=54e16ae8';
+import { createHeights } from './structures/heights.js?v=54e16ae8';
+import { BIOMES, getBiome } from './structures/biomes.js?v=54e16ae8';
+import { generateDecorations } from './structures/decorations.js?v=54e16ae8';
+import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange } from './gl/view3d.js?v=54e16ae8';
+import { createTerrainControls } from './gl/terrain-controls.js?v=54e16ae8';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -108,8 +108,11 @@ let heights = null;
 // Terrain params for the 3D playground. `seed` drives the procedural relief;
 // `biome` picks which generator + color scheme shapes it; Randomize picks a
 // new seed; Height/Roughness sliders regenerate at the same seed. orientation
-// + zoom drive the fixed-iso camera (not the height field).
-let terrainParams = { biome: 'dunes', seed: randomSeed(), amplitude: 4, roughness: 4, orientation: 0, zoom: 1 };
+// + zoom drive the fixed-iso camera (not the height field). buildMode is
+// 'raise'|'lower' for the drag-to-build interaction.
+// amplitude is initialized to the boot biome's maxHeight after BIOMES is loaded
+// (see below). Using 3 here as a safe fallback (dunes default maxHeight).
+let terrainParams = { biome: 'dunes', seed: randomSeed(), amplitude: 3, roughness: 4, orientation: 0, zoom: 1, buildMode: 'raise' };
 
 // Decorations cache for the active biome (rebuilt with the height field). The
 // view3d geometry builder pulls these via setSceneExtras() so the cached
@@ -263,7 +266,13 @@ function render() {
   if (is3dActive()) {
     // 3D tab: render the shared mesh + heights as a true-3D WebGL scene
     // (floor + extruded columns). Skip the flat 2D grid this frame.
-    drawView3d({ mesh: currentMesh, heights, dualCells });
+    drawView3d({
+      mesh: currentMesh,
+      heights,
+      dualCells,
+      buildMode: terrainParams.buildMode,
+      maxHeight: getBiome(terrainParams.biome).maxHeight,
+    });
   } else {
     // Grid tab (default): flat 2D draw, exactly as before.
     ctx.clearRect(0, 0, cssW, cssH);
@@ -406,8 +415,13 @@ initTabs();
 // can target it deterministically; defaults to 'dunes' (today's look).
 const bootBiome = urlBiome();
 if (bootBiome) terrainParams.biome = bootBiome;
+// Initialize amplitude to the boot biome's maxHeight (full range by default).
+terrainParams.amplitude = getBiome(terrainParams.biome).maxHeight;
 const bootAmp = urlAmplitude();
-if (bootAmp != null) terrainParams.amplitude = bootAmp;
+if (bootAmp != null) {
+  // Clamp URL override to the biome's maxHeight.
+  terrainParams.amplitude = Math.max(1, Math.min(getBiome(terrainParams.biome).maxHeight, bootAmp));
+}
 
 // --- 3D WebGL view ------------------------------------------------------
 // Owns the #gl-canvas + fixed-iso ortho camera + drag-to-build. The mesh +
@@ -440,9 +454,16 @@ const terrainUI = createTerrainControls(
   {
     biomes: BIOMES.map((b) => ({ id: b.id, label: b.label })),
     // Biome/Height/Roughness regenerate terrain; zoom/orientation drive camera.
+    // buildMode is stored but does not regenerate terrain (it's purely interactive).
     onChange: (p) => {
       const orientationChanged = p.orientation !== terrainParams.orientation;
+      const biomeChanged = p.biome !== terrainParams.biome;
       terrainParams = { ...terrainParams, ...p };
+      // When biome changes, clamp amplitude to the new biome's maxHeight.
+      if (biomeChanged) {
+        const newMax = getBiome(terrainParams.biome).maxHeight;
+        terrainParams.amplitude = Math.max(1, Math.min(newMax, terrainParams.amplitude));
+      }
       const cam = getCamera();
       if (cam) {
         cam.setZoom(terrainParams.zoom);
@@ -471,6 +492,7 @@ const terrainUI = createTerrainControls(
     orientation: terrainParams.orientation,
     amplitude: terrainParams.amplitude,
     roughness: terrainParams.roughness,
+    buildMode: terrainParams.buildMode,
   }
 );
 

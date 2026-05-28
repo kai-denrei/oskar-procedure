@@ -173,15 +173,71 @@ function makeOrientation(initial, onPick) {
   return { container, get: () => current, set: (k) => apply(k, false) };
 }
 
+// A 2-way segmented build-mode selector (Raise / Lower).
+// Calls onPick('raise'|'lower') when the selection changes.
+function makeBuildMode(initial, onPick) {
+  const container = document.createElement('div');
+  container.className = 'ctrl-row';
+
+  const header = document.createElement('div');
+  header.className = 'ctrl-header';
+  const lbl = document.createElement('span');
+  lbl.className = 'ctrl-label';
+  lbl.textContent = 'Build mode';
+  header.appendChild(lbl);
+  container.appendChild(header);
+
+  const group = document.createElement('div');
+  group.className = 'seg-group';
+  group.setAttribute('role', 'radiogroup');
+  group.setAttribute('aria-label', 'Build mode');
+
+  const choices = [
+    { value: 'raise', label: 'Raise' },
+    { value: 'lower', label: 'Lower' },
+  ];
+
+  let current = initial === 'lower' ? 'lower' : 'raise';
+  const buttons = new Map();
+
+  const apply = (val, fire) => {
+    current = val;
+    for (const [v, btn] of buttons) {
+      const active = v === current;
+      btn.classList.toggle('seg-active', active);
+      btn.setAttribute('aria-checked', active ? 'true' : 'false');
+    }
+    if (fire) onPick(current);
+  };
+
+  for (const { value, label } of choices) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'seg-btn';
+    btn.textContent = label;
+    btn.setAttribute('role', 'radio');
+    btn.addEventListener('click', () => {
+      if (current !== value) apply(value, true);
+    });
+    buttons.set(value, btn);
+    group.appendChild(btn);
+  }
+
+  container.appendChild(group);
+  apply(current, false);
+
+  return { container, get: () => current, set: (v) => apply(v, false) };
+}
+
 /**
  * Inject + wire the 3D terrain controls.
  * @param {{
- *   onChange:(params:{biome,zoom,orientation,amplitude,roughness})=>void,
+ *   onChange:(params:{biome,zoom,orientation,amplitude,roughness,buildMode})=>void,
  *   onRandomize:()=>void,
  *   onFlatten:()=>void,
  *   biomes?: Array<{id,label}>,
  * }} handlers
- * @param {{ biome?:string, zoom?:number, orientation?:number, amplitude?:number, roughness?:number }} [initial]
+ * @param {{ biome?:string, zoom?:number, orientation?:number, amplitude?:number, roughness?:number, buildMode?:string }} [initial]
  */
 export function createTerrainControls(handlers = {}, initial = {}) {
   const aside = document.getElementById('terrain-controls');
@@ -195,8 +251,22 @@ export function createTerrainControls(handlers = {}, initial = {}) {
   const biome0 = initial.biome != null ? initial.biome : (biomes[0] && biomes[0].id) || 'dunes';
   const zoom0 = initial.zoom != null ? initial.zoom : 1;
   const orient0 = initial.orientation != null ? initial.orientation : 0;
-  const amp0 = initial.amplitude != null ? initial.amplitude : 4;
   const rough0 = initial.roughness != null ? initial.roughness : 4;
+  const buildMode0 = initial.buildMode === 'lower' ? 'lower' : 'raise';
+
+  // Per-biome maxHeight lookup (fallback 8 for unknown). Used to re-range the
+  // Height slider and default it to the biome's cap on each biome change.
+  const getBiomeMaxHeight = (id) => {
+    const b = biomes.find((x) => x.id === id);
+    return (b && b.maxHeight != null) ? b.maxHeight : 8;
+  };
+
+  // Initial height slider value: clamp current amplitude to the biome cap;
+  // default to the biome's maxHeight (full range) if amplitude not given.
+  const maxH0 = getBiomeMaxHeight(biome0);
+  const amp0 = initial.amplitude != null
+    ? Math.max(1, Math.min(maxH0, Math.round(initial.amplitude)))
+    : maxH0;
 
   // --- title (hidden on mobile via existing CSS) ---
   const h1 = document.createElement('h1');
@@ -211,7 +281,17 @@ export function createTerrainControls(handlers = {}, initial = {}) {
   // (Placed first so it reads as the primary choice; sliders below tune it.)
   let biomePicker = { get: () => biome0, set: () => {} };
   if (biomes.length) {
-    biomePicker = makeBiomePicker(biomes, biome0, () => onChange(getParams()));
+    biomePicker = makeBiomePicker(biomes, biome0, (id) => {
+      // Re-range the Height slider to the new biome's maxHeight and reset its
+      // value to that cap (so generation uses the full range by default).
+      const newMax = getBiomeMaxHeight(id);
+      inputAmp.max = String(newMax);
+      // Clamp current value to the new max; if it was already ≤ max keep it.
+      const clamped = Math.max(1, Math.min(newMax, Math.round(Number(inputAmp.value))));
+      inputAmp.value = String(clamped);
+      ampReadout.textContent = `${clamped} fl`;
+      onChange(getParams());
+    });
     aside.appendChild(biomePicker.container);
   }
 
@@ -241,8 +321,9 @@ export function createTerrainControls(handlers = {}, initial = {}) {
   aside.appendChild(orientation.container);
 
   // --- Height (amplitude / max floors) ---
-  const { container: rowAmp, input: inputAmp } = makeSlider(
-    'ctrl-amp', 'Height', 1, 8, 1, amp0,
+  // Max is set to the active biome's maxHeight; re-ranged when biome changes.
+  const { container: rowAmp, input: inputAmp, readout: ampReadout } = makeSlider(
+    'ctrl-amp', 'Height', 1, maxH0, 1, amp0,
     (v) => `${v | 0} fl`
   );
   aside.appendChild(rowAmp);
@@ -253,6 +334,10 @@ export function createTerrainControls(handlers = {}, initial = {}) {
     (v) => v.toFixed(1)
   );
   aside.appendChild(rowRough);
+
+  // --- Build mode (Raise / Lower) ---
+  const buildModeCtrl = makeBuildMode(buildMode0, () => onChange(getParams()));
+  aside.appendChild(buildModeCtrl.container);
 
   const divider2 = document.createElement('hr');
   divider2.className = 'ctrl-divider';
@@ -273,6 +358,7 @@ export function createTerrainControls(handlers = {}, initial = {}) {
     orientation: orientation.get(),
     amplitude: Math.round(Number(inputAmp.value)),
     roughness: Number(inputRough.value),
+    buildMode: buildModeCtrl.get(),
   });
 
   // Wire change events. Orientation + biome are handled in their own onPick.
@@ -292,6 +378,9 @@ export function createTerrainControls(handlers = {}, initial = {}) {
     },
     setBiome(id) {
       biomePicker.set(id);
+    },
+    setBuildMode(mode) {
+      buildModeCtrl.set(mode);
     },
   };
 }

@@ -8,10 +8,10 @@
 //   resizeView3d()                            re-measure on tab switch / resize
 //   markView3dDirty()                         force a geometry rebuild next draw
 
-import { createRenderer } from './renderer.js?v=086a836c';
-import { createCamera } from './camera.js?v=086a836c';
-import { multiply, invert, transformPoint } from './mat4.js?v=086a836c';
-import { buildSceneGeometry } from '../structures/geometry.js?v=086a836c';
+import { createRenderer } from './renderer.js?v=54e16ae8';
+import { createCamera } from './camera.js?v=54e16ae8';
+import { multiply, invert, transformPoint } from './mat4.js?v=54e16ae8';
+import { buildSceneGeometry } from '../structures/geometry.js?v=54e16ae8';
 
 const FLOOR_H = 0.06; // world-units per floor (matches relax SIDE_LENGTH)
 
@@ -53,7 +53,9 @@ let sceneExtras = null;
 export function setSceneExtras(fn) { sceneExtras = fn; }
 
 // State injected each frame so pointer handlers can pick against current data.
-let liveState = { mesh: null, heights: null, dualCells: null };
+// buildMode: 'raise' | 'lower' — which direction drag-to-build acts.
+// maxHeight: biome cap for raise operations (clamps at this value).
+let liveState = { mesh: null, heights: null, dualCells: null, buildMode: 'raise', maxHeight: 7 };
 
 // Pointer / drag-to-build bookkeeping. Dragging paints a terrain stroke: each
 // pointer sample picks a quad and raises (or lowers) it. We track the last
@@ -110,6 +112,8 @@ export function drawView3d(state = {}) {
     mesh: state.mesh || null,
     heights: state.heights || null,
     dualCells: state.dualCells || null,
+    buildMode: state.buildMode || 'raise',
+    maxHeight: state.maxHeight != null ? state.maxHeight : 7,
   };
   if (!renderer || !renderer.ok || !camera) return;
 
@@ -164,10 +168,14 @@ function pickAndEdit(ev, force = false) {
 
   // Set the 4 corners to a common height: a FLAT-topped block, one floor above
   // (or below) the cell's current tallest corner; neighbours terrace at shared
-  // corners. Shift or right-button lowers.
+  // corners. Shift or right-button inverts the active build mode on desktop.
   const cur = Math.max(0, ...quad.map((vi) => heights.get(vi)));
-  const lower = downShift || downButton === 2;
-  const target = lower ? Math.max(0, cur - 1) : cur + 1;
+  // Determine direction: mode can be overridden by shift/right-click (shortcut).
+  const modeIsLower = liveState.buildMode === 'lower';
+  const shiftInverts = downShift || downButton === 2;
+  const lower = modeIsLower !== shiftInverts; // XOR: shift flips the active mode
+  const maxH = liveState.maxHeight != null ? liveState.maxHeight : 7;
+  const target = lower ? Math.max(0, cur - 1) : Math.min(maxH, cur + 1);
   for (const vi of quad) heights.set(vi, target);
   markView3dDirty();
 }

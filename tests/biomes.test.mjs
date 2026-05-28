@@ -59,14 +59,14 @@ test('amplitude bounds: heights stay within [0, amplitude] for every biome', () 
 
 test('quarry: high baseline at the rim, pit floor at 0 (concave, all ≥ 0)', () => {
   const mesh = gridMesh(13);
+  // Quarry maxHeight is 3 — pass amplitude beyond that to confirm clamping.
   const amplitude = 6;
   const h = getBiome('quarry').generate(mesh, { seed: 1, amplitude, roughness: 4 });
-  // The rim (corners) should reach the plateau height (== amplitude); the
-  // center should be the deepest (near 0).
+  // The rim (corners) should reach the quarry maxHeight (3), not the raw amplitude.
   const max = Math.max(...h);
   const min = Math.min(...h);
   assert.equal(min, 0, 'pit bottom dug to ground (0)');
-  assert.equal(max, amplitude, 'rim sits at the plateau (amplitude)');
+  assert.equal(max, 3, 'quarry rim sits at maxHeight (3) regardless of amplitude');
   // Center cell should be lower than the rim (concave).
   const n = 13;
   const centerIdx = Math.floor(n / 2) * n + Math.floor(n / 2);
@@ -141,5 +141,50 @@ test('empty / null mesh yields empty heights for every biome', () => {
   for (const b of BIOMES) {
     assert.deepEqual(b.generate({ vertices: [] }, PARAMS), []);
     assert.deepEqual(b.generate(null, PARAMS), []);
+  }
+});
+
+// ── Per-biome maxHeight tests ──────────────────────────────────────────────
+
+test('each biome exposes a maxHeight field with the correct value', () => {
+  const expected = { dunes: 3, mountains: 7, forest: 3, meadows: 2, swamps: 1, quarry: 3 };
+  for (const b of BIOMES) {
+    assert.equal(b.maxHeight, expected[b.id], `${b.id}: expected maxHeight ${expected[b.id]}`);
+  }
+});
+
+test('generate output never exceeds each biome\'s maxHeight across seeds', () => {
+  const mesh = gridMesh(14);
+  for (const seed of [1, 42, 99, 1234]) {
+    for (const b of BIOMES) {
+      // Pass amplitude well above maxHeight to confirm the biome's own cap wins.
+      const h = b.generate(mesh, { seed, amplitude: 99, roughness: 5 });
+      for (const v of h) {
+        assert.ok(
+          v <= b.maxHeight,
+          `${b.id} seed=${seed}: height ${v} exceeds maxHeight ${b.maxHeight}`
+        );
+      }
+    }
+  }
+});
+
+test('mountains can produce heights above 3 (uncapped by lower-biome limits)', () => {
+  const mesh = gridMesh(20);
+  // Use amplitude at mountains maxHeight=7 to get the full range.
+  const h = getBiome('mountains').generate(mesh, { seed: 7, amplitude: 7, roughness: 5 });
+  const max = Math.max(...h);
+  assert.ok(max > 3, `mountains max ${max} should exceed 3 (full 7-floor range)`);
+});
+
+test('non-mountain biomes cannot produce heights above 3', () => {
+  const mesh = gridMesh(14);
+  for (const id of ['dunes', 'forest', 'meadows', 'swamps', 'quarry']) {
+    const b = getBiome(id);
+    // High amplitude to confirm the biome's own cap is enforced.
+    const h = b.generate(mesh, { seed: 5, amplitude: 99, roughness: 5 });
+    for (const v of h) {
+      assert.ok(v <= 3, `${id}: height ${v} exceeds 3 (non-mountain cap)`);
+    }
   }
 });

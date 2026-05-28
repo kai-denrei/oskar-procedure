@@ -13,7 +13,7 @@
 // sliders. Heights are non-negative ints. The 'dunes' biome reproduces the
 // original generateTerrain() look so it stays the default.
 
-import { valueNoise2D } from './terrain.js?v=086a836c';
+import { valueNoise2D } from './terrain.js?v=54e16ae8';
 
 // Deterministic 32-bit hash → [0,1). Same primitive as terrain.js so all
 // biomes hash decorrelate against the same seed space.
@@ -54,9 +54,10 @@ function clampInt(h, max) {
 // Directional sinusoidal waves with a perpendicular cross-modulation: rolling
 // sand dunes that read as a coherent direction (not blobby). The wave axis
 // rotates with the seed so different randomizations look distinct.
+const DUNES_MAX = 3;
 function generateDunes(mesh, opts = {}) {
   const seed = (opts.seed | 0) || 0;
-  const amplitude = Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4));
+  const amplitude = Math.min(DUNES_MAX, Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4)));
   const roughness = opts.roughness != null ? opts.roughness : 1;
   if (!mesh || !mesh.vertices || !mesh.vertices.length) return [];
 
@@ -104,9 +105,10 @@ function colorizeDunes(ctx) {
 // produces sharp ridge crests; doubling the frequency per octave gives the
 // classic multifractal jaggedness. We square the final 0..1 height to push
 // most mass toward the base (most cells low, occasional peaks tall).
+const MOUNTAINS_MAX = 7;
 function generateMountains(mesh, opts = {}) {
   const seed = (opts.seed | 0) || 0;
-  const amplitude = Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4));
+  const amplitude = Math.min(MOUNTAINS_MAX, Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4)));
   const roughness = opts.roughness != null ? opts.roughness : 1;
   if (!mesh || !mesh.vertices || !mesh.vertices.length) return [];
 
@@ -154,9 +156,10 @@ function colorizeMountains(ctx) {
 }
 
 // ── Forest — medium-frequency rolling value noise ───────────────────────────
+const FOREST_MAX = 3;
 function generateForest(mesh, opts = {}) {
   const seed = (opts.seed | 0) || 0;
-  const amplitude = Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4));
+  const amplitude = Math.min(FOREST_MAX, Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4)));
   const roughness = opts.roughness != null ? opts.roughness : 1;
   if (!mesh || !mesh.vertices || !mesh.vertices.length) return [];
 
@@ -186,9 +189,10 @@ function colorizeForest(ctx) {
 }
 
 // ── Meadows — heavily damped: heights capped at 1–2 floors ──────────────────
+const MEADOWS_MAX = 2;
 function generateMeadows(mesh, opts = {}) {
   const seed = (opts.seed | 0) || 0;
-  const amplitude = Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4));
+  const amplitude = Math.min(MEADOWS_MAX, Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4)));
   const roughness = opts.roughness != null ? opts.roughness : 1;
   if (!mesh || !mesh.vertices || !mesh.vertices.length) return [];
 
@@ -220,9 +224,10 @@ function colorizeMeadows(ctx) {
 }
 
 // ── Swamps — nearly flat (mostly 0, occasional 1) ───────────────────────────
+const SWAMPS_MAX = 1;
 function generateSwamps(mesh, opts = {}) {
   const seed = (opts.seed | 0) || 0;
-  const amplitude = Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4));
+  const amplitude = Math.min(SWAMPS_MAX, Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4)));
   const roughness = opts.roughness != null ? opts.roughness : 1;
   if (!mesh || !mesh.vertices || !mesh.vertices.length) return [];
 
@@ -252,9 +257,10 @@ function colorizeSwamps(ctx) {
 // Baseline = amplitude floors (high plateau). A radial "step" function digs
 // a stepped pit centered on the mesh center. All heights stay ≥ 0 (the pit
 // floor is at 0, the rim sits at `amplitude`).
+const QUARRY_MAX = 3;
 function generateQuarry(mesh, opts = {}) {
   const seed = (opts.seed | 0) || 0;
-  const amplitude = Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4));
+  const amplitude = Math.min(QUARRY_MAX, Math.max(0, Math.round(opts.amplitude != null ? opts.amplitude : 4)));
   const roughness = opts.roughness != null ? opts.roughness : 1;
   if (!mesh || !mesh.vertices || !mesh.vertices.length) return [];
 
@@ -298,12 +304,12 @@ function colorizeQuarry(ctx) {
 
 // ── Registry + lookup ──────────────────────────────────────────────────────
 export const BIOMES = [
-  { id: 'dunes',     label: 'Dunes',     generate: generateDunes,     colorize: colorizeDunes },
-  { id: 'mountains', label: 'Mountains', generate: generateMountains, colorize: colorizeMountains },
-  { id: 'forest',    label: 'Forest',    generate: generateForest,    colorize: colorizeForest },
-  { id: 'meadows',   label: 'Meadows',   generate: generateMeadows,   colorize: colorizeMeadows },
-  { id: 'swamps',    label: 'Swamps',    generate: generateSwamps,    colorize: colorizeSwamps },
-  { id: 'quarry',    label: 'Quarry',    generate: generateQuarry,    colorize: colorizeQuarry },
+  { id: 'dunes',     label: 'Dunes',     maxHeight: 3, generate: generateDunes,     colorize: colorizeDunes },
+  { id: 'mountains', label: 'Mountains', maxHeight: 7, generate: generateMountains, colorize: colorizeMountains },
+  { id: 'forest',    label: 'Forest',    maxHeight: 3, generate: generateForest,    colorize: colorizeForest },
+  { id: 'meadows',   label: 'Meadows',   maxHeight: 2, generate: generateMeadows,   colorize: colorizeMeadows },
+  { id: 'swamps',    label: 'Swamps',    maxHeight: 1, generate: generateSwamps,    colorize: colorizeSwamps },
+  { id: 'quarry',    label: 'Quarry',    maxHeight: 3, generate: generateQuarry,    colorize: colorizeQuarry },
 ];
 
 const BY_ID = new Map(BIOMES.map((b) => [b.id, b]));

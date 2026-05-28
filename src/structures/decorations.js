@@ -44,6 +44,41 @@ function quadRadius(quad, vertices, cx, cy) {
   return maxR;
 }
 
+// Inradius of a quad: minimum distance from the centroid to any of its 4
+// edges. For a convex quad this gives the largest circle that fits inside.
+// A decoration placed within `inradius` of the centroid is guaranteed to stay
+// inside the quad (assuming it is convex, which relaxed quads are in practice).
+function quadInradius(quad, vertices, cx, cy) {
+  let minDist = Infinity;
+  const n = quad.length;
+  for (let i = 0; i < n; i++) {
+    const a = vertices[quad[i]];
+    const b = vertices[quad[(i + 1) % n]];
+    // Signed distance from centroid to the edge line (a→b): ||(b-a) × (a-c)|| / ||b-a||
+    const edx = b[0] - a[0], edy = b[1] - a[1];
+    const len = Math.hypot(edx, edy);
+    if (len < 1e-12) continue;
+    const cross = Math.abs(edx * (a[1] - cy) - edy * (a[0] - cx));
+    const d = cross / len;
+    if (d < minDist) minDist = d;
+  }
+  return Number.isFinite(minDist) ? minDist : 0;
+}
+
+// Build a Set of boundary vertex indices from the mesh's boundary data.
+// `mesh.boundary` may be a Set<number> or an array; returns a Set<number>.
+function buildBoundarySet(mesh) {
+  if (!mesh.boundary) return new Set();
+  if (mesh.boundary instanceof Set) return mesh.boundary;
+  return new Set(mesh.boundary);
+}
+
+// Returns true if any vertex of the quad is a boundary vertex.
+function isBoundaryQuad(quad, boundarySet) {
+  for (const vi of quad) { if (boundarySet.has(vi)) return true; }
+  return false;
+}
+
 // World-z of a quad's top: max of its 4 corners' heights × floorH.
 function quadTopZ(quad, heights, floorH) {
   let max = 0;
@@ -73,12 +108,14 @@ export function generateDecorations({ biome, mesh, heights, seed = 0, floorH = 0
   if (biome === 'mountains' || biome === 'dunes' || biome === 'quarry') return [];
 
   const { vertices, quads } = mesh;
+  const boundarySet = buildBoundarySet(mesh);
   const out = [];
 
   for (let qi = 0; qi < quads.length; qi++) {
     const q = quads[qi];
     const [cx, cy] = quadCentroid(q, vertices);
     const r = quadRadius(q, vertices, cx, cy);
+    const inr = quadInradius(q, vertices, cx, cy);
     const topZ = quadTopZ(q, heights, floorH);
 
     if (biome === 'forest') {
@@ -102,14 +139,19 @@ export function generateDecorations({ biome, mesh, heights, seed = 0, floorH = 0
         });
       }
     } else if (biome === 'meadows') {
-      // 1–3 flowers per cell.
+      // Skip boundary cells so flowers near the hull edge can't spill past it.
+      if (isBoundaryQuad(q, boundarySet)) continue;
+
+      // 1–3 flowers per cell. Clamp placement to within 85% of the inradius so
+      // every flower is guaranteed inside the (convex) quad.
+      const safeR = inr * 0.85;
       const nFlowers = 1 + Math.floor(hash01(seed, qi, 0xF10F) * 3);
       for (let k = 0; k < nFlowers; k++) {
-        // Place within ~60% of the cell radius around the centroid.
         const a = hash01(seed, qi, 0x100 + k) * Math.PI * 2;
-        const radial = 0.15 + 0.45 * hash01(seed, qi, 0x200 + k);
-        const fx = cx + Math.cos(a) * r * radial;
-        const fy = cy + Math.sin(a) * r * radial;
+        // Radial distance: uniform in [0, safeR] (no minimum so centroid is reachable).
+        const radial = safeR * hash01(seed, qi, 0x200 + k);
+        const fx = cx + Math.cos(a) * radial;
+        const fy = cy + Math.sin(a) * radial;
         // Pick a color from a four-stop meadow palette.
         const pal = [
           [0.95, 0.95, 0.90], // white
@@ -127,12 +169,14 @@ export function generateDecorations({ biome, mesh, heights, seed = 0, floorH = 0
           color: c,
         });
       }
-      // Rare pond: ~4% of cells.
+      // Rare pond: ~4% of cells. Use centroid only (always inside).
       if (hash01(seed, qi, 0xB0A7) < 0.04) {
+        // Clamp pond radius so it fits inside the cell (≤ inradius).
+        const pondRadius = Math.min(r * 0.65, inr * 0.85);
         out.push({
           type: 'pond',
           x: cx, y: cy, z: Math.max(0, topZ) - floorH * 0.18,
-          radius: r * 0.65,
+          radius: pondRadius,
         });
       }
     } else if (biome === 'swamps') {
