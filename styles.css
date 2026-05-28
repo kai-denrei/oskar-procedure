@@ -26,8 +26,76 @@ html, body {
 }
 
 body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Tab bar ─────────────────────────────────────────────────────────────── */
+#tabbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--line);
+  padding: 0 0.5rem;
+  gap: 0;
+  height: 2.5rem;
+  /* keep above canvas and content */
+  position: relative;
+  z-index: 10;
+}
+
+#tabbar [role="tab"] {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: none;
+  color: var(--ink-dim);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 0 1rem;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+  white-space: nowrap;
+}
+
+#tabbar [role="tab"]:hover {
+  color: var(--ink);
+  filter: none;
+}
+
+#tabbar [role="tab"].active,
+#tabbar [role="tab"][aria-selected="true"] {
+  color: var(--amber);
+  border-bottom-color: var(--amber);
+  background: transparent;
+  filter: none;
+}
+
+/* ── Views container ─────────────────────────────────────────────────────── */
+#views {
+  flex: 1 1 0;
+  min-height: 0;
+  position: relative;
+}
+
+/* ── Each view fills the container ──────────────────────────────────────── */
+.view {
+  position: absolute;
+  inset: 0;
   display: grid;
   grid-template-columns: 1fr 18rem;
+}
+
+.view[hidden] {
+  display: none;
+}
+
+/* ── Grid view internals ─────────────────────────────────────────────────── */
+#view-grid {
+  /* inherits the 1fr 18rem grid from .view */
 }
 
 #stage {
@@ -48,6 +116,151 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+}
+
+/* ── About view ──────────────────────────────────────────────────────────── */
+#view-about {
+  display: block; /* single-column scroll; override .view grid when visible */
+  overflow-y: auto;
+}
+
+#view-about[hidden] {
+  display: none;
+}
+
+.about-article {
+  min-height: 100%;
+  padding: 3rem 1.5rem 4rem;
+}
+
+.about-col {
+  max-width: 66ch;
+  margin: 0 auto;
+}
+
+.about-eyebrow {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+  margin: 0 0 0.75rem;
+}
+
+.about-headline {
+  font-family: var(--serif);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 1.25rem;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.about-lead {
+  font-size: 1.1rem;
+  line-height: 1.65;
+  color: var(--ink);
+  margin: 0 0 2.5rem;
+  text-wrap: pretty;
+}
+
+/* ── Pipeline figure ─────────────────────────────────────────────────────── */
+.about-figure {
+  margin: 0 0 2.5rem;
+  max-width: 56rem;
+}
+
+.about-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.about-caption {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  text-align: center;
+  margin: 0.6rem 0 0;
+  text-wrap: pretty;
+}
+
+/* ── Numbered sections ───────────────────────────────────────────────────── */
+.about-section {
+  margin: 0 0 2.25rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--line);
+  position: relative;
+}
+
+.about-section-num {
+  font-family: var(--mono);
+  font-size: 3rem;
+  line-height: 1;
+  color: var(--line);
+  font-weight: 700;
+  margin: 0;
+  position: absolute;
+  top: 0.5rem;
+  right: 0;
+  user-select: none;
+  pointer-events: none;
+}
+
+.about-section-head {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 0.75rem;
+  text-wrap: balance;
+}
+
+.about-body {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--ink);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* ── Driver epigraph ─────────────────────────────────────────────────────── */
+.about-driver {
+  margin: 2.25rem 0;
+  padding: 0.9rem 0 0.9rem 1.25rem;
+  border-left: 3px solid var(--line);
+}
+
+.about-driver p {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  margin: 0;
+  font-style: italic;
+  text-wrap: pretty;
+}
+
+/* ── Coda ────────────────────────────────────────────────────────────────── */
+.about-coda {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.about-coda-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+  margin: 0 0 0.6rem;
+}
+
+.about-coda .about-body {
+  font-size: 0.88rem;
+  color: var(--ink-dim);
 }
 
 #controls h1 {
@@ -286,7 +499,23 @@ input[type="range"]::-moz-range-thumb {
    we stack vertically: the canvas grows to fill, controls become a short,
    compact, scrollable strip at the bottom. */
 @media (max-width: 768px) {
-  body {
+  /* Tab bar: shrink text slightly, allow wrapping of long tab name */
+  #tabbar [role="tab"] {
+    font-size: 0.65rem;
+    padding: 0 0.65rem;
+    letter-spacing: 0.06em;
+  }
+
+  /* Grid view: switch from the 2-column desktop grid to vertical stack */
+  .view {
+    display: block; /* override the 1fr 18rem grid; content inside re-flexes */
+  }
+
+  .view[hidden] {
+    display: none;
+  }
+
+  #view-grid {
     display: flex;
     flex-direction: column;
   }
@@ -331,4 +560,17 @@ input[type="range"]::-moz-range-thumb {
   /* float the cache-bust badge above the controls strip so it doesn't cover
      the seed readout (it's fixed bottom-right; inline styles -> !important). */
   [id^="cb-badge"] { bottom: calc(32vh + 10px) !important; }
+
+  /* About view on mobile: full width, comfortable padding */
+  .about-article {
+    padding: 1.75rem 1rem 3rem;
+  }
+
+  .about-col {
+    max-width: 100%;
+  }
+
+  .about-section-num {
+    font-size: 2.25rem;
+  }
 }

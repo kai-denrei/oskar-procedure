@@ -1,13 +1,14 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=a2277a10';
-import { randomSeed } from './rng.js?v=a2277a10';
-import { drawMesh, drawDualCells } from './render2d.js?v=a2277a10';
-import { createControls, setSeedDisplay } from './controls.js?v=a2277a10';
-import { buildHalfEdge } from './halfedge.js?v=a2277a10';
-import { extractDualCells, hitTestVertex } from './dual.js?v=a2277a10';
-import { createState } from './state.js?v=a2277a10';
+import { generateMesh, makeRelaxer } from './grid.js?v=36e5656e';
+import { randomSeed } from './rng.js?v=36e5656e';
+import { drawMesh, drawDualCells } from './render2d.js?v=36e5656e';
+import { createControls, setSeedDisplay } from './controls.js?v=36e5656e';
+import { buildHalfEdge } from './halfedge.js?v=36e5656e';
+import { extractDualCells, hitTestVertex } from './dual.js?v=36e5656e';
+import { createState } from './state.js?v=36e5656e';
+import { initTabs } from './tabs.js?v=36e5656e';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -263,6 +264,9 @@ const endPaint = () => {
 canvas.addEventListener('pointerup', endPaint);
 canvas.addEventListener('pointercancel', endPaint);
 canvas.addEventListener('pointerleave', endPaint);
+
+// --- tabs ---------------------------------------------------------------
+initTabs();
 
 // --- boot ---------------------------------------------------------------
 resize();
