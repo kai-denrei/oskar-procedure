@@ -56,6 +56,9 @@ const PRECACHE = [
   './src/structures/hexmap.js',
   './src/gl/map-view.js',
   './src/gl/map-controls.js',
+  // MAP-3: tile focus-edit
+  './src/gl/map-edit.js',
+  './src/gl/map-edit-controls.js',
   // vendored deps (offline)
   './vendor/delaunator.js',
   './vendor/robust-predicates.js',

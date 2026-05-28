@@ -15,7 +15,7 @@ import { generateDecorations } from './structures/decorations.js?v=f9d2abf8';
 import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=f9d2abf8';
 import { createTerrainControls } from './gl/terrain-controls.js?v=f9d2abf8';
 import { createHexMap } from './structures/hexmap.js?v=f9d2abf8';
-import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused } from './gl/map-view.js?v=f9d2abf8';
+import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused, enterFocus } from './gl/map-view.js?v=f9d2abf8';
 import { createMapControls } from './gl/map-controls.js?v=f9d2abf8';
 import { createMapEditControls } from './gl/map-edit-controls.js';
 
@@ -637,6 +637,17 @@ if (DEMO && typeof window !== 'undefined') {
     if (Number.isFinite(q) && Number.isFinite(r) && bid) {
       window.__retypeTile(q, r, bid);
     }
+  }
+
+  // ?focus=q,r — enter focus on a tile on boot (deterministic screenshots).
+  window.__mapFocus = (q, r) => {
+    const t = hexMap && hexMap.getTile(q, r);
+    return t ? enterFocus(t) : false;
+  };
+  const focusParam = new URLSearchParams(location.search).get('focus');
+  if (focusParam) {
+    const [qs, rs] = focusParam.split(',');
+    window.__mapFocus(parseInt(qs, 10), parseInt(rs, 10));
   }
 }
 
