@@ -39,6 +39,9 @@ const TREE_CANOPY_COLOR = [0.08, 0.36, 0.16];
 const WATER_COLOR       = [0.18, 0.42, 0.52];
 const POND_COLOR        = [0.22, 0.46, 0.58];
 const REED_COLOR        = [0.20, 0.42, 0.20];
+const ROCK_COLOR        = [0.50, 0.50, 0.52];
+const WALL_COLOR        = [0.80, 0.72, 0.58];
+const ROOF_COLOR        = [0.62, 0.30, 0.24];
 // Soft side-tone for slope/wall variants of a base color (darken a bit).
 function darken(c, k = 0.78) { return [c[0] * k, c[1] * k, c[2] * k]; }
 
@@ -344,6 +347,23 @@ export function buildSceneGeometry({ mesh, heights, decorations, biome } = {}, o
     }
   }
 
+  // An axis-aligned square prism (hut walls) centered at (cx,cy), side `w`,
+  // from z0 up to z0+h, plus a flat top. Walls wound outward (matches columns).
+  // For a CCW-from-above square, wall on edge i→j wound floor(i)→top(i)→top(j)→floor(j)
+  // faces outward (same convention as column side walls above).
+  function emitBox(cx, cy, z0, w, h, color) {
+    if (w <= 0 || h <= 0) return;
+    const hw = w / 2, z1 = z0 + h;
+    const c = [[cx-hw,cy-hw],[cx+hw,cy-hw],[cx+hw,cy+hw],[cx-hw,cy+hw]]; // CCW
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4;
+      const fi = [c[i][0], c[i][1], z0], ti = [c[i][0], c[i][1], z1];
+      const tj = [c[j][0], c[j][1], z1], fj = [c[j][0], c[j][1], z0];
+      quadFace(fi, ti, tj, fj, color); // outward
+    }
+    quadFace([c[0][0],c[0][1],z1],[c[1][0],c[1][1],z1],[c[2][0],c[2][1],z1],[c[3][0],c[3][1],z1], color);
+  }
+
   function emitDecorations(decs) {
     for (const d of decs) {
       if (d.type === 'tree') {
@@ -364,6 +384,11 @@ export function buildSceneGeometry({ mesh, heights, decorations, biome } = {}, o
         quadFace(a, b, c, e, WATER_COLOR);
       } else if (d.type === 'reed') {
         emitCylinder(d.x, d.y, d.z, d.height, d.radius, 3, REED_COLOR);
+      } else if (d.type === 'rock') {
+        emitCone(d.x, d.y, d.z, d.height, d.radius, 5, ROCK_COLOR);
+      } else if (d.type === 'building') {
+        emitBox(d.x, d.y, d.z, d.width, d.wallHeight, WALL_COLOR);
+        emitCone(d.x, d.y, d.z + d.wallHeight, d.roofHeight, d.width * 0.78, 4, ROOF_COLOR);
       }
     }
   }
