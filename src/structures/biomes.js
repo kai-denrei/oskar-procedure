@@ -13,7 +13,7 @@
 // sliders. Heights are non-negative ints. The 'dunes' biome reproduces the
 // original generateTerrain() look so it stays the default.
 
-import { valueNoise2D } from './terrain.js?v=faca1ff4';
+import { valueNoise2D } from './terrain.js?v=e8cc32be';
 
 // Deterministic 32-bit hash → [0,1). Same primitive as terrain.js so all
 // biomes hash decorrelate against the same seed space.

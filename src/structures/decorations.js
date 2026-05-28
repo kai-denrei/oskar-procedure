@@ -119,17 +119,19 @@ export function generateDecorations({ biome, mesh, heights, seed = 0, floorH = 0
     const topZ = quadTopZ(q, heights, floorH);
 
     if (biome === 'forest') {
+      // Skip boundary cells so a tree's canopy can't poke past the hull edge.
+      if (isBoundaryQuad(q, boundarySet)) continue;
       // ~40% chance of a tree per cell. Deterministic per (seed, qi).
       const pTree = hash01(seed, qi, 0xA11C);
       if (pTree < 0.40) {
-        // Scale 0.7×–1.4× and orientation jitter (rotation cosmetic for cones).
         const scale = 0.7 + 0.7 * hash01(seed, qi, 0x70BE);
         const angle = hash01(seed, qi, 0xF00D) * Math.PI * 2;
-        // Tree size scales with the cell so trees fit inside their cell.
-        const trunkRadius = r * 0.10 * scale;
-        const trunkHeight = r * 0.45 * scale;
-        const canopyRadius = r * 0.40 * scale;
-        const canopyHeight = r * 0.85 * scale;
+        // Clamp the canopy to the cell's inradius so the whole tree stays inside
+        // the quad; derive the rest from it (keeps the tree's proportions).
+        const canopyRadius = Math.min(r * 0.40 * scale, inr * 0.9);
+        const trunkRadius = canopyRadius * 0.25;
+        const trunkHeight = canopyRadius * 1.1;
+        const canopyHeight = canopyRadius * 2.1;
         out.push({
           type: 'tree',
           x: cx, y: cy, z: topZ,
@@ -186,14 +188,16 @@ export function generateDecorations({ biome, mesh, heights, seed = 0, floorH = 0
         quadIndex: qi,
         z: floorH * 0.3,
       });
-      // Rare reed cluster: ~12% of cells get 3–5 reeds.
-      if (hash01(seed, qi, 0x7EED) < 0.12) {
+      // Rare reed cluster: ~12% of interior cells get 3–5 reeds, kept inside
+      // the cell via the inradius (like meadow flowers).
+      if (!isBoundaryQuad(q, boundarySet) && hash01(seed, qi, 0x7EED) < 0.12) {
+        const safeR = inr * 0.85;
         const nReeds = 3 + Math.floor(hash01(seed, qi, 0x8EED) * 3);
         for (let k = 0; k < nReeds; k++) {
           const a = hash01(seed, qi, 0x900 + k) * Math.PI * 2;
-          const radial = 0.10 + 0.40 * hash01(seed, qi, 0xA00 + k);
-          const fx = cx + Math.cos(a) * r * radial;
-          const fy = cy + Math.sin(a) * r * radial;
+          const radial = safeR * hash01(seed, qi, 0xA00 + k);
+          const fx = cx + Math.cos(a) * radial;
+          const fy = cy + Math.sin(a) * radial;
           out.push({
             type: 'reed',
             x: fx, y: fy, z: floorH * 0.3,
