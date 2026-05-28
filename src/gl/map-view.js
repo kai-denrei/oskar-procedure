@@ -230,6 +230,8 @@ function rebuildFocus() {
 
 export function enterFocus(tile) {
   if (!tile || tile.biomeId === 'water' || !liveMap) return false;
+  if (focusedTile === tile) return true;   // already focused here
+  if (focusedTile) exitFocus();            // switching tiles → clean exit first (fires onFocusChange(null))
   bakeIfNeeded(tile, tileMesh(tile, liveMap));
   focusedTile = tile;
   rebuildFocus();
@@ -242,9 +244,9 @@ export function exitFocus() {
   const t = focusedTile;
   focusedTile = null;
   focusGeom = null;
-  // The edited tile's board-cache entry is now stale (epoch changed) → drop it
-  // so the board rebuild picks up the edit.
-  tileCache.delete(tileKey(t));
+  // Drop every cached board-geometry entry for this tile (any biome/epoch) so
+  // the forced rebuild below re-renders it with the edit.
+  for (const k of tileCache.keys()) { if (k.startsWith(t.seed + ':')) tileCache.delete(k); }
   markMapDirty();
   requestMapReframe();
   if (onFocusChange) onFocusChange(null);
@@ -504,6 +506,9 @@ function onPointerDown(ev) {
   movedFar = false;
   canvas.setPointerCapture?.(ev.pointerId);
   // In focus mode a press may begin a sculpt stroke (Task: tool state in main).
+  // NOTE (Phase 1): sculpt-on-press fires for the first finger of a touch pinch
+  // too (one stray cell edit before the 2nd finger cancels the drag). Harmless on
+  // desktop/mouse; reversible via Lower. Revisit for touch in a later pass.
   if (focusedTile) focusSculptAt(ev);
 }
 function onPointerMove(ev) {
@@ -553,7 +558,7 @@ export function initMapView() {
   });
   const up = (ev) => { onPointerUpPinch(ev); onPointerUp(ev); };
   canvas.addEventListener('pointerup', up);
-  canvas.addEventListener('pointercancel', (ev) => { onPointerUpPinch(ev); dragging = false; lastDrag = null; });
+  canvas.addEventListener('pointercancel', (ev) => { onPointerUpPinch(ev); dragging = false; lastDrag = null; lastSculptCell = -1; });
   canvas.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('contextmenu', onContextMenu);
   window.addEventListener('resize', resizeMapView);
