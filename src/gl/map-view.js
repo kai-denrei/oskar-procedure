@@ -21,14 +21,15 @@
 //   markMapDirty()               force a full rebuild next draw
 //   getMapCamera()               expose camera for the panel zoom/orientation
 
-import { createRenderer } from './renderer.js?v=f9d2abf8';
-import { createCamera } from './camera.js?v=f9d2abf8';
-import { multiply, invert, transformPoint } from './mat4.js?v=f9d2abf8';
-import { generateMesh, relax } from '../grid.js?v=f9d2abf8';
-import { getBiome, BIOMES } from '../structures/biomes.js?v=f9d2abf8';
-import { createHeights } from '../structures/heights.js?v=f9d2abf8';
-import { generateDecorations } from '../structures/decorations.js?v=f9d2abf8';
-import { buildSceneGeometry } from '../structures/geometry.js?v=f9d2abf8';
+import { createRenderer } from './renderer.js?v=a0f69c78';
+import { createCamera } from './camera.js?v=a0f69c78';
+import { multiply, invert, transformPoint } from './mat4.js?v=a0f69c78';
+import { generateMesh, relax } from '../grid.js?v=a0f69c78';
+import { getBiome, BIOMES } from '../structures/biomes.js?v=a0f69c78';
+import { createHeights } from '../structures/heights.js?v=a0f69c78';
+import { generateDecorations } from '../structures/decorations.js?v=a0f69c78';
+import { buildSceneGeometry } from '../structures/geometry.js?v=a0f69c78';
+import { bakeIfNeeded, buildFocusGeometry, cellAt, cellInradius, cellCentroid, sculpt as editSculpt, placeObject as editPlace, eraseAt as editErase, ERASE_RADIUS_FACTOR } from './map-edit.js?v=a0f69c78';
 
 const FLOOR_H = 0.06; // world-units per floor (matches view3d / relax SIDE_LENGTH)
 // Sea plane sits just under the tiles' base slab so the land reads as islands
@@ -55,7 +56,21 @@ export function getMapCamera() { return camera; }
 // translated to the tile center. Rebuilt only when a tile's biome changes
 // (its seed is stable). Cleared wholesale on radius/randomize.
 const tileCache = new Map();
-function tileKey(tile) { return tile.seed + ':' + tile.biomeId; }
+// Relaxed hex patch per tile seed (deterministic from seed) — reused by both
+// the board build and focus-mode editing so we never re-relax the same patch.
+const meshCache = new Map(); // seed -> relaxed mesh
+function tileMesh(tile, map) {
+  let m = meshCache.get(tile.seed);
+  if (!m) {
+    m = generateMesh({ seeder: 'hex', rings: map.ringsPerTile, seed: tile.seed });
+    relax(m, { n_iters: 100, pinned: m.boundary });
+    meshCache.set(tile.seed, m);
+  }
+  return m;
+}
+function tileKey(tile) {
+  return tile.seed + ':' + tile.biomeId + ':' + (tile.edit ? tile.edit.epoch : 0);
+}
 
 // Live board model + dirty tracking.
 let liveMap = null;
@@ -68,7 +83,7 @@ export function markMapDirty() { dirty = true; }
 export function requestMapReframe() { reframePending = true; dirty = true; }
 
 // Drop all cached tile geometry (radius change / randomize → all new seeds).
-export function clearMapCache() { tileCache.clear(); markMapDirty(); }
+export function clearMapCache() { tileCache.clear(); meshCache.clear(); markMapDirty(); }
 
 function aspect() {
   if (!canvas) return 1;
@@ -80,53 +95,30 @@ function aspect() {
 function buildTileGeometry(tile, map) {
   if (tile.biomeId === 'water') return null;
   const biome = getBiome(tile.biomeId);
+  const mesh = tileMesh(tile, map);
 
-  // The tile's own organic hex patch, relaxed with a pinned (perfect-hexagon)
-  // boundary so the outline stays a regular hexagon and the seams stay gap-free.
-  const mesh = generateMesh({
-    seeder: 'hex',
-    rings: map.ringsPerTile,
-    seed: tile.seed,
-  });
-  relax(mesh, { n_iters: 100, pinned: mesh.boundary });
+  let geom;
+  if (tile.edit) {
+    // Edited tile: render from the editable state (objects already ride terrain
+    // via buildFocusGeometry, which refreshes their z).
+    geom = buildFocusGeometry(tile, mesh);
+  } else {
+    // Procedural tile (unchanged behavior).
+    const hs = biome.generate(mesh, { seed: tile.seed, amplitude: biome.maxHeight, roughness: 4 });
+    const heights = createHeights(mesh.vertices.length);
+    for (let i = 0; i < hs.length; i++) heights.set(i, hs[i]);
+    const decorations = generateDecorations({ biome: tile.biomeId, mesh, heights, seed: tile.seed, floorH: FLOOR_H });
+    geom = buildSceneGeometry({ mesh, heights, decorations, biome }, { floorH: FLOOR_H, amplitude: biome.maxHeight });
+  }
 
-  // Terrain heights from the biome generator at this tile's seed.
-  const hs = biome.generate(mesh, {
-    seed: tile.seed,
-    amplitude: biome.maxHeight,
-    roughness: 4,
-  });
-  const heights = createHeights(mesh.vertices.length);
-  for (let i = 0; i < hs.length; i++) heights.set(i, hs[i]);
-
-  const decorations = generateDecorations({
-    biome: tile.biomeId,
-    mesh,
-    heights,
-    seed: tile.seed,
-    floorH: FLOOR_H,
-  });
-
-  const geom = buildSceneGeometry(
-    { mesh, heights, decorations, biome },
-    { floorH: FLOOR_H, amplitude: biome.maxHeight }
-  );
-
-  // Translate positions by the tile center (xy). Normals/colors unchanged.
+  // Translate positions by the tile center (xy).
   const [tx, ty] = tile.center;
   const pos = geom.positions;
   const out = new Float32Array(pos.length);
   for (let i = 0; i < pos.length; i += 3) {
-    out[i] = pos[i] + tx;
-    out[i + 1] = pos[i + 1] + ty;
-    out[i + 2] = pos[i + 2];
+    out[i] = pos[i] + tx; out[i + 1] = pos[i + 1] + ty; out[i + 2] = pos[i + 2];
   }
-  return {
-    positions: out,
-    normals: geom.normals,
-    colors: geom.colors,
-    indices: geom.indices,
-  };
+  return { positions: out, normals: geom.normals, colors: geom.colors, indices: geom.indices };
 }
 
 // Cached fetch (build on miss). Returns null for water tiles.
@@ -219,6 +211,46 @@ function buildBoardGeometry(map) {
 
 let cachedBoard = null;
 
+// --- focus mode (single-tile editor) -------------------------------------
+let focusedTile = null;          // the tile being edited, or null (= board)
+let focusGeom = null;            // its cached renderable geometry
+let onFocusChange = null;        // (tile|null) => void — main.js swaps the panel
+export function setMapOnFocusChange(cb) { onFocusChange = cb; }
+export function isFocused() { return focusedTile != null; }
+
+function rebuildFocus() {
+  if (!focusedTile || !liveMap) return;
+  const mesh = tileMesh(focusedTile, liveMap);
+  const g = buildFocusGeometry(focusedTile, mesh);
+  focusGeom = g;
+  if (renderer) renderer.setGeometry(g);
+}
+
+export function enterFocus(tile) {
+  if (!tile || tile.biomeId === 'water' || !liveMap) return false;
+  if (focusedTile === tile) return true;   // already focused here
+  if (focusedTile) exitFocus();            // switching tiles → clean exit first (fires onFocusChange(null))
+  bakeIfNeeded(tile, tileMesh(tile, liveMap));
+  focusedTile = tile;
+  rebuildFocus();
+  if (camera && focusGeom) camera.frameBounds(focusGeom.bounds);
+  if (onFocusChange) onFocusChange(tile);
+  return true;
+}
+
+export function exitFocus() {
+  if (!focusedTile) return;
+  const t = focusedTile;
+  focusedTile = null;
+  focusGeom = null;
+  // Drop every cached board-geometry entry for this tile (any biome/epoch) so
+  // the forced rebuild below re-renders it with the edit.
+  for (const k of tileCache.keys()) { if (k.startsWith(t.seed + ':')) tileCache.delete(k); }
+  markMapDirty();
+  requestMapReframe();
+  if (onFocusChange) onFocusChange(null);
+}
+
 function rebuildBoard() {
   if (!liveMap) return;
   cachedBoard = buildBoardGeometry(liveMap);
@@ -237,12 +269,18 @@ export function drawMapView(state = {}) {
   liveMap = state.map || liveMap;
   if (!renderer || !renderer.ok || !camera || !liveMap) return;
 
-  if (dirty || liveMap !== lastMapRef) rebuildBoard();
+  if (focusedTile) {
+    if (!focusGeom) rebuildFocus();
+    const view = camera.viewMatrix();
+    const proj = camera.projMatrix(aspect());
+    renderer.draw(multiply(proj, view));
+    return;
+  }
 
+  if (dirty || liveMap !== lastMapRef) rebuildBoard();
   const view = camera.viewMatrix();
   const proj = camera.projMatrix(aspect());
-  const mvp = multiply(proj, view);
-  renderer.draw(mvp);
+  renderer.draw(multiply(proj, view));
 }
 
 export function resizeMapView() {
@@ -356,6 +394,14 @@ function showMenu(tile, clientX, clientY) {
 
 function onContextMenu(ev) {
   ev.preventDefault();
+  if (focusedTile) {
+    // In focus mode: right-click erases the nearest object under the cursor.
+    const { gp, cell, mesh } = focusGroundCell(ev);
+    if (!gp || cell < 0) return;
+    const radius = cellInradius(mesh, cell) * ERASE_RADIUS_FACTOR;
+    if (editErase(focusedTile, mesh, gp, radius)) rebuildFocus();
+    return;
+  }
   const gp = unprojectToGround(ev.clientX, ev.clientY);
   const tile = pickTileAt(gp);
   if (!tile) { hideMenu(); return; }
@@ -426,20 +472,115 @@ function onPointerUpPinch(ev) {
   if (activePointers.size < 2) { pinchStartDist = 0; pinchStartCentroid = null; }
 }
 
+// --- focus-mode editing input --------------------------------------------
+// tool: { mode:'sculpt'|'place', dir:+1|-1, objectId:string|null }
+let tool = { mode: 'sculpt', dir: +1, objectId: null };
+export function setMapTool(t) { tool = { ...tool, ...t }; }
+
+// DEMO/test hook: apply an edit to the focused tile by op name, then rebuild.
+//   op 'sculpt'  payload { cellIdx, dir }
+//   op 'place'   payload { type, point:[lx,ly] }
+//   op 'erase'   payload { point:[lx,ly] }
+export function applyFocusEdit(op, payload = {}) {
+  if (!focusedTile || !liveMap) return false;
+  const mesh = tileMesh(focusedTile, liveMap);
+  const biome = getBiome(focusedTile.biomeId);
+  let ok = false;
+  if (op === 'sculpt') {
+    editSculpt(focusedTile, payload.cellIdx, payload.dir, biome.maxHeight, mesh);
+    ok = true;
+  } else if (op === 'place') {
+    ok = editPlace(focusedTile, payload.type, mesh, payload.point);
+  } else if (op === 'erase') {
+    const ci = cellAt(mesh, payload.point[0], payload.point[1]);
+    if (ci >= 0) {
+      ok = editErase(focusedTile, mesh, payload.point, cellInradius(mesh, ci) * ERASE_RADIUS_FACTOR);
+    }
+  }
+  if (ok) rebuildFocus();
+  return ok;
+}
+
+// DEMO/test hook: place one of each object + a raised block on the focused tile,
+// on spread cells, for a deterministic verification screenshot. Returns false if
+// not focused.
+export function demoShowcaseEdit() {
+  if (!focusedTile || !liveMap) return false;
+  const mesh = tileMesh(focusedTile, liveMap);
+  const biome = getBiome(focusedTile.biomeId);
+  const n = mesh.quads.length;
+  const cell = (frac) => Math.min(n - 1, Math.max(0, Math.round(frac * (n - 1))));
+  const place = (type, frac) => editPlace(focusedTile, type, mesh, cellCentroid(mesh, cell(frac)));
+  place('tree', 0.20);
+  place('rock', 0.42);
+  place('building', 0.64);
+  place('water', 0.84);
+  const sc = cell(0.10);
+  editSculpt(focusedTile, sc, +1, biome.maxHeight, mesh);
+  editSculpt(focusedTile, sc, +1, biome.maxHeight, mesh);
+  rebuildFocus();
+  return true;
+}
+
+let lastSculptCell = -1; // avoid re-editing the same cell while dragging
+function focusGroundCell(ev) {
+  const gp = unprojectToGround(ev.clientX, ev.clientY);
+  if (!gp || !focusedTile) return { gp: null, cell: -1, mesh: null };
+  const mesh = tileMesh(focusedTile, liveMap);
+  // focus geometry is centered at the tile's own origin → subtract tile.center
+  const lx = gp[0] - focusedTile.center[0];
+  const ly = gp[1] - focusedTile.center[1];
+  return { gp: [lx, ly], cell: cellAt(mesh, lx, ly), mesh };
+}
+
+function focusSculptAt(ev) {
+  if (tool.mode !== 'sculpt') return;            // Place handled on click
+  const { cell, mesh } = focusGroundCell(ev);
+  if (cell < 0 || cell === lastSculptCell) return;
+  lastSculptCell = cell;
+  const biome = getBiome(focusedTile.biomeId);
+  editSculpt(focusedTile, cell, tool.dir, biome.maxHeight, mesh);
+  rebuildFocus();
+}
+
+function focusPlaceAt(ev) {
+  const { gp, cell, mesh } = focusGroundCell(ev);
+  if (!gp || cell < 0) return;
+  if (editPlace(focusedTile, tool.objectId, mesh, gp)) rebuildFocus();
+}
+
 // Single-finger drag → pan the board (no build interaction on the Map tab).
 let dragging = false;
 let lastDrag = null;
+let pressStart = null;     // [x,y] client at press
+let movedFar = false;      // exceeded the click threshold
+const CLICK_PX = 5;
+
 function onPointerDown(ev) {
   if (ev.button === 2) return; // right-click handled by contextmenu
   dragging = true;
   lastDrag = [ev.clientX, ev.clientY];
+  pressStart = [ev.clientX, ev.clientY];
+  movedFar = false;
   canvas.setPointerCapture?.(ev.pointerId);
+  // In focus mode a press begins a place or sculpt stroke depending on the tool.
+  // NOTE (Phase 1): sculpt-on-press fires for the first finger of a touch pinch
+  // too (one stray cell edit before the 2nd finger cancels the drag). Harmless on
+  // desktop/mouse; reversible via Lower. Revisit for touch in a later pass.
+  if (focusedTile) {
+    if (tool.mode === 'place' && tool.objectId) focusPlaceAt(ev);
+    else focusSculptAt(ev);
+  }
 }
 function onPointerMove(ev) {
   if (!dragging || !lastDrag) return;
   const dxPx = ev.clientX - lastDrag[0];
   const dyPx = ev.clientY - lastDrag[1];
+  if (pressStart && Math.hypot(ev.clientX - pressStart[0], ev.clientY - pressStart[1]) > CLICK_PX) movedFar = true;
   lastDrag = [ev.clientX, ev.clientY];
+
+  if (focusedTile) { focusSculptAt(ev); return; } // sculpt-paint across cells
+
   const rect = canvas.getBoundingClientRect();
   const ext = camera.state.halfExtent / camera.state.zoom;
   const worldPerPx = (2 * ext) / Math.min(rect.width, rect.height);
@@ -447,9 +588,16 @@ function onPointerMove(ev) {
   if (onCameraChange) onCameraChange();
 }
 function onPointerUp(ev) {
+  const wasClick = dragging && !movedFar;
   dragging = false;
   lastDrag = null;
   canvas.releasePointerCapture?.(ev.pointerId);
+  if (!focusedTile && wasClick) {
+    const gp = unprojectToGround(ev.clientX, ev.clientY);
+    const tile = pickTileAt(gp);
+    if (tile) enterFocus(tile);
+  }
+  lastSculptCell = -1;
 }
 
 export function initMapView() {
@@ -471,7 +619,7 @@ export function initMapView() {
   });
   const up = (ev) => { onPointerUpPinch(ev); onPointerUp(ev); };
   canvas.addEventListener('pointerup', up);
-  canvas.addEventListener('pointercancel', (ev) => { onPointerUpPinch(ev); dragging = false; lastDrag = null; });
+  canvas.addEventListener('pointercancel', (ev) => { onPointerUpPinch(ev); dragging = false; lastDrag = null; lastSculptCell = -1; });
   canvas.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('contextmenu', onContextMenu);
   window.addEventListener('resize', resizeMapView);

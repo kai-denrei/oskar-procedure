@@ -183,3 +183,16 @@ test('water decoration covers a cell footprint as a flat quad', () => {
   assert.ok(allFinite(geom.positions));
   assert.ok(normalsUnitLength(geom));
 });
+
+test('emits triangles for rock + building decoration records', () => {
+  const mesh = { vertices: [[0,0],[1,0],[1,1],[0,1]], quads: [[0,1,2,3]] };
+  const base = buildSceneGeometry({ mesh, heights: null }, {}).triangleCount;
+  const withRock = buildSceneGeometry(
+    { mesh, heights: null, decorations: [{ type:'rock', x:0.5, y:0.5, z:0, radius:0.2, height:0.15 }] }, {}
+  ).triangleCount;
+  const withBuilding = buildSceneGeometry(
+    { mesh, heights: null, decorations: [{ type:'building', x:0.5, y:0.5, z:0, width:0.3, wallHeight:0.24, roofHeight:0.18 }] }, {}
+  ).triangleCount;
+  assert.ok(withRock > base, 'rock adds triangles');
+  assert.ok(withBuilding > base, 'building adds triangles');
+});

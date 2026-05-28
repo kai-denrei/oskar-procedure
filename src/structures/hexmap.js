@@ -31,9 +31,9 @@
 //   }
 //   tiles: [{ q, r, center:[x,y], biomeId, seed }]  — count = 1 + 3·R·(R+1)
 
-import { hexDistance } from '../hex.js?v=f9d2abf8';
-import { BIOMES } from './biomes.js?v=f9d2abf8';
-import { mulberry32 } from '../rng.js?v=f9d2abf8';
+import { hexDistance } from '../hex.js?v=a0f69c78';
+import { BIOMES } from './biomes.js?v=a0f69c78';
+import { mulberry32 } from '../rng.js?v=a0f69c78';
 
 const SQRT3 = Math.sqrt(3);
 
@@ -101,6 +101,7 @@ export function createHexMap({ radius = 2, seed = 0, ringsPerTile = 3, spacing =
         center: tileCenter(q, r, m1, m2),
         biomeId,
         seed: tileSeed(seed, q, r),
+        edit: null, // { heights:number[], objects:Record[], epoch } once edited (map-edit.js)
       };
       tiles.push(tile);
       byKey.set(q + ',' + r, tile);

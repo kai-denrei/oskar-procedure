@@ -1,22 +1,23 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=f9d2abf8';
-import { randomSeed } from './rng.js?v=f9d2abf8';
-import { drawMesh, drawDualCells } from './render2d.js?v=f9d2abf8';
-import { createControls, setSeedDisplay } from './controls.js?v=f9d2abf8';
-import { buildHalfEdge } from './halfedge.js?v=f9d2abf8';
-import { extractDualCells, hitTestVertex } from './dual.js?v=f9d2abf8';
-import { createState } from './state.js?v=f9d2abf8';
-import { initTabs } from './tabs.js?v=f9d2abf8';
-import { createHeights } from './structures/heights.js?v=f9d2abf8';
-import { BIOMES, getBiome } from './structures/biomes.js?v=f9d2abf8';
-import { generateDecorations } from './structures/decorations.js?v=f9d2abf8';
-import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=f9d2abf8';
-import { createTerrainControls } from './gl/terrain-controls.js?v=f9d2abf8';
-import { createHexMap } from './structures/hexmap.js?v=f9d2abf8';
-import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty } from './gl/map-view.js?v=f9d2abf8';
-import { createMapControls } from './gl/map-controls.js?v=f9d2abf8';
+import { generateMesh, makeRelaxer } from './grid.js?v=a0f69c78';
+import { randomSeed } from './rng.js?v=a0f69c78';
+import { drawMesh, drawDualCells } from './render2d.js?v=a0f69c78';
+import { createControls, setSeedDisplay } from './controls.js?v=a0f69c78';
+import { buildHalfEdge } from './halfedge.js?v=a0f69c78';
+import { extractDualCells, hitTestVertex } from './dual.js?v=a0f69c78';
+import { createState } from './state.js?v=a0f69c78';
+import { initTabs } from './tabs.js?v=a0f69c78';
+import { createHeights } from './structures/heights.js?v=a0f69c78';
+import { BIOMES, getBiome } from './structures/biomes.js?v=a0f69c78';
+import { generateDecorations } from './structures/decorations.js?v=a0f69c78';
+import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=a0f69c78';
+import { createTerrainControls } from './gl/terrain-controls.js?v=a0f69c78';
+import { createHexMap } from './structures/hexmap.js?v=a0f69c78';
+import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused, enterFocus, applyFocusEdit, demoShowcaseEdit } from './gl/map-view.js?v=a0f69c78';
+import { createMapControls } from './gl/map-controls.js?v=a0f69c78';
+import { createMapEditControls } from './gl/map-edit-controls.js?v=a0f69c78';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -584,9 +585,37 @@ setMapOnCameraChange(() => {});
 setMapOnRetype((tile, biomeId) => {
   if (!hexMap || !tile) return;
   hexMap.setBiome(tile, biomeId);
-  // Only this tile's cache entry is now stale (its key changed) → a full board
-  // rebuild re-pulls cached geometry for unchanged tiles and rebuilds this one.
+  // An EDITED tile keeps its sculpt + objects; only the biome (→ colorize +
+  // height cap) changes. An UNEDITED tile regenerates from the new biome (its
+  // cache key has epoch 0, so the next board build re-generates it).
+  // buildTileGeometry already renders from tile.edit when present, so no
+  // extra logic is needed here to preserve edits on retype.
   markMapDirty();
+});
+
+// --- Map focus-edit panel ---------------------------------------------------
+const boardPanel = document.getElementById('map-controls');
+const editPanel = document.getElementById('map-edit-controls');
+
+const mapEditUI = createMapEditControls({
+  onTool: (t) => setMapTool(t),
+  onExit: () => exitFocus(),
+});
+
+// Swap panels when focus enters/leaves a tile.
+setMapOnFocusChange((tile) => {
+  const editing = !!tile;
+  boardPanel.hidden = editing;
+  editPanel.hidden = !editing;
+  if (editing) {
+    setMapTool({ mode: 'sculpt', dir: +1, objectId: null });
+    mapEditUI.reset();
+  }
+});
+
+// Esc exits focus.
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && isFocused()) exitFocus();
 });
 
 // DEMO-only test hook (?demo=1): a window function + a ?retype=q,r,biome URL
@@ -612,6 +641,28 @@ if (DEMO && typeof window !== 'undefined') {
       window.__retypeTile(q, r, bid);
     }
   }
+
+  // ?focus=q,r — enter focus on a tile on boot (deterministic screenshots).
+  window.__mapFocus = (q, r) => {
+    const t = hexMap && hexMap.getTile(q, r);
+    return t ? enterFocus(t) : false;
+  };
+  // DEMO showcase: place objects + sculpt on the focused tile for a deterministic
+  // verification screenshot. Inert in production (outside the DEMO block).
+  window.__mapShowcase = () => demoShowcaseEdit();
+  const focusParam = new URLSearchParams(location.search).get('focus');
+  if (focusParam) {
+    const [qs, rs] = focusParam.split(',');
+    // Defer until after the first render frame sets map-view's liveMap (enterFocus needs it).
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.__mapFocus(parseInt(qs, 10), parseInt(rs, 10));
+      if (new URLSearchParams(location.search).get('edit') === 'showcase') window.__mapShowcase();
+    }));
+  }
+
+  // window.__mapEdit(op, payload) — drive an edit on the focused tile from the
+  // console or a headless test script (e.g. place a tree, sculpt a cell, erase).
+  window.__mapEdit = (op, payload) => applyFocusEdit(op, payload);
 }
 
 // --- boot ---------------------------------------------------------------

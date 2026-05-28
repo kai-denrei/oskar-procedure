@@ -12,7 +12,7 @@
 // Projection is ORTHOGRAPHIC (parallel) — the iso look (no perspective
 // foreshortening, parallel edges). Pure-ish: depends only on mat4 (no DOM/GL).
 
-import { ortho, lookAt } from './mat4.js?v=f9d2abf8';
+import { ortho, lookAt } from './mat4.js?v=a0f69c78';
 
 const DEG = Math.PI / 180;
 // True isometric elevation: the camera looks down a (1,1,1)-style diagonal, so
