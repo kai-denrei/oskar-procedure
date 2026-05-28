@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>oskar-procedure — organic quad grid</title>
-  <link rel="stylesheet" href="styles.css?v=6471296b">
+  <link rel="stylesheet" href="styles.css?v=dfbbef36">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="cb" content="6471296b">
-  <link rel="icon" type="image/svg+xml" href="cb-shapes/36.svg?v=6471296b">
-  <script src="cb-badge.js?v=6471296b" defer></script>
+  <meta name="cb" content="dfbbef36">
+  <link rel="icon" type="image/svg+xml" href="cb-shapes/31.svg?v=dfbbef36">
+  <script src="cb-badge.js?v=dfbbef36" defer></script>
 
   <!-- PWA: manifest + theme + iOS tags (all relative for base-path portability) -->
-  <link rel="manifest" href="manifest.webmanifest?v=6471296b">
+  <link rel="manifest" href="manifest.webmanifest?v=dfbbef36">
   <meta name="theme-color" content="#14130f">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=6471296b">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=dfbbef36">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -46,10 +46,10 @@
       </aside>
     </section>
 
-    <!-- 3D isometric floor view -->
+    <!-- 3D WebGL view: orbit + build-by-stacking -->
     <section id="view-3d" class="view" role="tabpanel" aria-labelledby="tab-3d" hidden>
-      <canvas id="iso-grid" aria-label="isometric grid floor canvas"></canvas>
-      <p id="iso-hint">drag to rotate</p>
+      <canvas id="gl-canvas" aria-label="3D structures WebGL canvas"></canvas>
+      <p id="iso-hint">drag: orbit · click: raise · ⇧click: lower</p>
     </section>
 
     <!-- About view -->
@@ -152,7 +152,7 @@
 
   </div><!-- #views -->
 
-  <script type="module" src="src/main.js?v=6471296b"></script>
-  <script type="module" src="src/pwa.js?v=6471296b"></script>
+  <script type="module" src="src/main.js?v=dfbbef36"></script>
+  <script type="module" src="src/pwa.js?v=dfbbef36"></script>
 </body>
 </html>

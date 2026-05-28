@@ -1,15 +1,16 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=6471296b';
-import { randomSeed } from './rng.js?v=6471296b';
-import { drawMesh, drawDualCells } from './render2d.js?v=6471296b';
-import { createControls, setSeedDisplay } from './controls.js?v=6471296b';
-import { buildHalfEdge } from './halfedge.js?v=6471296b';
-import { extractDualCells, hitTestVertex } from './dual.js?v=6471296b';
-import { createState } from './state.js?v=6471296b';
-import { initTabs } from './tabs.js?v=6471296b';
-import { initIsoView, drawIsoView } from './iso-view.js?v=6471296b';
+import { generateMesh, makeRelaxer } from './grid.js?v=dfbbef36';
+import { randomSeed } from './rng.js?v=dfbbef36';
+import { drawMesh, drawDualCells } from './render2d.js?v=dfbbef36';
+import { createControls, setSeedDisplay } from './controls.js?v=dfbbef36';
+import { buildHalfEdge } from './halfedge.js?v=dfbbef36';
+import { extractDualCells, hitTestVertex } from './dual.js?v=dfbbef36';
+import { createState } from './state.js?v=dfbbef36';
+import { initTabs } from './tabs.js?v=dfbbef36';
+import { createHeights } from './structures/heights.js?v=dfbbef36';
+import { initView3d, drawView3d, markView3dDirty } from './gl/view3d.js?v=dfbbef36';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -92,6 +93,11 @@ let halfEdge = null;
 let dualCells = null;
 let cornerState = null;
 
+// M3D-1: shared per-primary-vertex height field for the 3D build-by-stacking
+// view. Recreated whenever a mesh is (re)generated; seeded from paint on settle
+// (a painted dual cell ⇒ height ≥ 1, so it reads as a 1-floor block in 3D).
+let heights = null;
+
 const CONVERGENCE_THRESHOLD = 1e-4; // stop early if displacement drops below this
 
 // Demo paint: gated behind ?demo=1 (OFF by default — shipped default starts with
@@ -120,11 +126,32 @@ function buildConnectivity() {
   halfEdge = buildHalfEdge(currentMesh);
   dualCells = extractDualCells(currentMesh, halfEdge);
   cornerState = createState(currentMesh.vertices.length);
+  heights = createHeights(currentMesh.vertices.length);
 
   if (DEMO) {
     // every 3rd interior cell -> filled, so the screenshot shows painted cells
     for (let i = 0; i < dualCells.length; i += 3) {
       cornerState.set(dualCells[i].vertexIndex, true);
+    }
+    // Deterministic stepping so 3D screenshots show RAISED columns (not a flat
+    // floor): every 6th interior cell gets height 2, every 12th gets height 3.
+    for (let i = 0; i < dualCells.length; i += 6) {
+      heights.set(dualCells[i].vertexIndex, i % 12 === 0 ? 3 : 2);
+    }
+  }
+
+  // Seed heights from paint: a painted dual cell shows as at least a 1-floor
+  // block in 3D. Preserve any larger value already set (e.g. the demo stepping).
+  seedHeightsFromPaint();
+  markView3dDirty();
+}
+
+// For each painted dual cell, ensure heights.get(vertexIndex) >= 1. Idempotent.
+function seedHeightsFromPaint() {
+  if (!heights || !dualCells || !cornerState) return;
+  for (const cell of dualCells) {
+    if (cornerState.get(cell.vertexIndex)) {
+      heights.set(cell.vertexIndex, Math.max(1, heights.get(cell.vertexIndex)));
     }
   }
 }
@@ -153,8 +180,9 @@ function render() {
   }
 
   if (is3dActive()) {
-    // 3D tab: render the shared mesh as an isometric floor; skip the flat grid.
-    drawIsoView({ mesh: currentMesh, cornerState, dualCells });
+    // 3D tab: render the shared mesh + heights as a true-3D WebGL scene
+    // (floor + extruded columns). Skip the flat 2D grid this frame.
+    drawView3d({ mesh: currentMesh, heights, dualCells });
   } else {
     // Grid tab (default): flat 2D draw, exactly as before.
     ctx.clearRect(0, 0, cssW, cssH);
@@ -199,10 +227,12 @@ function startGrid({ seed, seeder, r, rings, pullRate, nIters } = {}) {
   });
   frameCount = 0;
   settled = false;
-  // drop stale connectivity/paint state; rebuilt once the new grid settles
+  // drop stale connectivity/paint/height state; rebuilt once the new grid settles
   halfEdge = null;
   dualCells = null;
   cornerState = null;
+  heights = null;
+  markView3dDirty();
   setSeedDisplay(currentSeed);
 
   // DEMO: relax synchronously and settle immediately so headless screenshots
@@ -259,8 +289,15 @@ function paintAt(ev) {
   const pt = pointerToNormalized(ev);
   const vi = hitTestVertex(pt, dualCells);
   if (vi < 0 || vi === lastPaintedVertex) return; // outside any cell or same cell
-  cornerState.toggle(vi);
+  const nowFilled = cornerState.toggle(vi);
   lastPaintedVertex = vi;
+  // Keep the 3D height field consistent with paint: painting a cell raises it
+  // to at least 1 floor; un-painting clears its column back to ground.
+  if (heights) {
+    if (nowFilled) heights.set(vi, Math.max(1, heights.get(vi)));
+    else heights.set(vi, 0);
+    markView3dDirty();
+  }
   // RAF loop redraws every frame, so no explicit repaint needed.
 }
 
@@ -284,10 +321,10 @@ canvas.addEventListener('pointerleave', endPaint);
 // --- tabs ---------------------------------------------------------------
 initTabs();
 
-// --- 3D iso view --------------------------------------------------------
-// Owns the #iso-grid canvas + camera + drag-to-rotate. The mesh is shared
-// (never regenerated on tab switch); the RAF loop above feeds it currentMesh.
-initIsoView();
+// --- 3D WebGL view ------------------------------------------------------
+// Owns the #gl-canvas + orbit camera + click-to-raise. The mesh + heights are
+// shared (never regenerated on tab switch); the RAF loop above feeds them in.
+initView3d();
 
 // --- boot ---------------------------------------------------------------
 resize();
