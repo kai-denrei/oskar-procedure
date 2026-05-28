@@ -130,6 +130,7 @@ export function createControls(onChange, initial = {}) {
     syncVisibility();
     fire();
   });
+  selector.container.classList.add('ctrl-shape'); // targetable for the mobile layout
   aside.appendChild(selector.container);
 
   // --- Point density (Poisson radius — smaller = more points) ---

@@ -27,6 +27,7 @@ invariants from human-judged visual gates.
 |---|---|---|
 
 ## Lessons
+- Headless Chrome's `--window-size` is NOT the CSS layout viewport — it laid out at ~500 CSS px while screenshotting 390px, cropping the right edge and faking a "clipped label" bug that didn't exist. Verify mobile layout with **CDP `Emulation.setDeviceMetricsOverride`** (true width/DSF/mobile) + `Page.captureScreenshot`, or read element rects via CDP, not a window-sized screenshot. — from chasing a phantom mobile clip on 2026-05-28
 
 ## Open Questions
 - [ ] How to machine-assert "no zero-area quads after relax" tolerance? Pick an epsilon relative to SIDE_LENGTH. — owner: minikai — since: 2026-05-27

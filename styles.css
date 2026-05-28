@@ -279,3 +279,56 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .pwa-toast__dismiss:hover { color: var(--ink); filter: none; }
+
+/* ── Mobile / narrow: grid fills the screen, compact controls strip below ──
+   The desktop layout is `1fr 18rem` (canvas | side panel). On a phone the fixed
+   18rem panel swallows the screen and the art becomes a sliver, so below 768px
+   we stack vertically: the canvas grows to fill, controls become a short,
+   compact, scrollable strip at the bottom. */
+@media (max-width: 768px) {
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #stage {
+    flex: 1 1 auto;
+    min-height: 0; /* let the canvas size to the flex height, not its content */
+  }
+
+  #controls {
+    flex: 0 0 auto;
+    max-height: 32vh;
+    overflow-y: auto;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding: 0.55rem 0.9rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+    /* single compact column (base #controls is already a flex column) — no
+       horizontal grid means no overflow/clipping of the segmented labels. */
+    gap: 0.4rem;
+  }
+
+  /* reclaim vertical space: drop the decorative title + divider on mobile */
+  #controls h1,
+  #controls .sub,
+  .ctrl-divider {
+    display: none;
+  }
+
+  #regenerate { padding: 0.5rem; font-size: 0.78rem; }
+
+  /* tighten every control row */
+  .ctrl-row { gap: 0.2rem; }
+  .ctrl-row label,
+  .ctrl-label { font-size: 0.62rem; letter-spacing: 0.1em; }
+  .ctrl-value { font-size: 0.64rem; }
+  .ctrl-seed-row { margin-top: 0; padding-top: 0.45rem; }
+
+  /* larger touch targets for slider thumbs on a phone */
+  input[type="range"]::-webkit-slider-thumb { width: 16px; height: 16px; }
+  input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; }
+
+  /* float the cache-bust badge above the controls strip so it doesn't cover
+     the seed readout (it's fixed bottom-right; inline styles -> !important). */
+  [id^="cb-badge"] { bottom: calc(32vh + 10px) !important; }
+}
