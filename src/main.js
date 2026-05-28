@@ -15,8 +15,9 @@ import { generateDecorations } from './structures/decorations.js?v=f9d2abf8';
 import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=f9d2abf8';
 import { createTerrainControls } from './gl/terrain-controls.js?v=f9d2abf8';
 import { createHexMap } from './structures/hexmap.js?v=f9d2abf8';
-import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty } from './gl/map-view.js?v=f9d2abf8';
+import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused } from './gl/map-view.js?v=f9d2abf8';
 import { createMapControls } from './gl/map-controls.js?v=f9d2abf8';
+import { createMapEditControls } from './gl/map-edit-controls.js';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -587,6 +588,28 @@ setMapOnRetype((tile, biomeId) => {
   // Only this tile's cache entry is now stale (its key changed) → a full board
   // rebuild re-pulls cached geometry for unchanged tiles and rebuilds this one.
   markMapDirty();
+});
+
+// --- Map focus-edit panel ---------------------------------------------------
+const boardPanel = document.getElementById('map-controls');
+const editPanel = document.getElementById('map-edit-controls');
+
+const mapEditUI = createMapEditControls({
+  onTool: (t) => setMapTool(t),
+  onExit: () => exitFocus(),
+});
+
+// Swap panels when focus enters/leaves a tile.
+setMapOnFocusChange((tile) => {
+  const editing = !!tile;
+  boardPanel.hidden = editing;
+  editPanel.hidden = !editing;
+  if (editing) setMapTool({ mode: 'sculpt', dir: +1, objectId: null });
+});
+
+// Esc exits focus.
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && isFocused()) exitFocus();
 });
 
 // DEMO-only test hook (?demo=1): a window function + a ?retype=q,r,biome URL
