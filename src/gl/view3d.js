@@ -8,16 +8,21 @@
 //   resizeView3d()                            re-measure on tab switch / resize
 //   markView3dDirty()                         force a geometry rebuild next draw
 
-import { createRenderer } from './renderer.js?v=1689f3b0';
-import { createCamera } from './camera.js?v=1689f3b0';
-import { multiply, invert, transformPoint } from './mat4.js?v=1689f3b0';
-import { buildSceneGeometry } from '../structures/geometry.js?v=1689f3b0';
+import { createRenderer } from './renderer.js?v=eb73a4b5';
+import { createCamera } from './camera.js?v=eb73a4b5';
+import { multiply, invert, transformPoint } from './mat4.js?v=eb73a4b5';
+import { buildSceneGeometry } from '../structures/geometry.js?v=eb73a4b5';
 
 const FLOOR_H = 0.06; // world-units per floor (matches relax SIDE_LENGTH)
 
 let canvas = null;
 let renderer = null;
 let camera = null;
+
+// Optional callback fired when the camera target changes (so main.js can
+// trigger a redraw / sync any UI). Set via setOnCameraChange().
+let onCameraChange = null;
+export function setOnCameraChange(cb) { onCameraChange = cb; }
 
 // Notified when the wheel changes zoom, so the panel slider can reflect it.
 let onZoomChange = null;
@@ -37,6 +42,15 @@ let lastMeshRef = null;
 let lastHeightsRef = null;
 let lastHeightsMax = -1;
 let framedOnce = false;
+
+// World-space bounds of the last-built scene — used to soft-clamp panning so
+// the user can't lose the patch entirely. Refreshed every rebuildGeometry().
+let currentBounds = null;
+
+// Optional supplier of (decorations, biome) for the geometry builder. main.js
+// installs this so the cached rebuild path knows how to recolor / decorate.
+let sceneExtras = null;
+export function setSceneExtras(fn) { sceneExtras = fn; }
 
 // State injected each frame so pointer handlers can pick against current data.
 let liveState = { mesh: null, heights: null, dualCells: null };
@@ -62,12 +76,17 @@ function aspect() {
 // Rebuild the scene geometry from the live mesh + heights and upload it.
 function rebuildGeometry() {
   const { mesh, heights } = liveState;
-  cachedGeom = buildSceneGeometry({ mesh, heights }, { floorH: FLOOR_H });
+  const extras = sceneExtras ? sceneExtras() : {};
+  cachedGeom = buildSceneGeometry(
+    { mesh, heights, decorations: extras.decorations, biome: extras.biome },
+    { floorH: FLOOR_H, amplitude: extras.amplitude }
+  );
   if (renderer) renderer.setGeometry(cachedGeom);
   dirty = false;
   lastMeshRef = mesh;
   lastHeightsRef = heights;
   lastHeightsMax = heights ? heights.max() : -1;
+  currentBounds = cachedGeom && cachedGeom.bounds ? cachedGeom.bounds : null;
 
   // First time we have real geometry, frame the camera on its bounds.
   if (!framedOnce && cachedGeom && cachedGeom.triangleCount > 0 && camera) {
@@ -212,14 +231,30 @@ function onWheel(ev) {
   if (onZoomChange) onZoomChange(camera.getZoom());
 }
 
-// Pinch-to-zoom via two active pointers.
+// Pinch-to-zoom + two-finger pan via two active pointers. With one finger we
+// run drag-to-build; the moment a second finger touches we cancel that stroke
+// (so the building gesture doesn't keep painting underneath the pinch/pan).
 const activePointers = new Map();
 let pinchStartDist = 0;
+let pinchStartCentroid = null; // [x,y] in client coords, for two-finger pan
+function pointerCentroid() {
+  let cx = 0, cy = 0;
+  for (const [, [x, y]] of activePointers) { cx += x; cy += y; }
+  const n = activePointers.size || 1;
+  return [cx / n, cy / n];
+}
 function onPointerDownPinch(ev) {
   activePointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
   if (activePointers.size === 2) {
     const pts = [...activePointers.values()];
     pinchStartDist = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]) || 1;
+    pinchStartCentroid = pointerCentroid();
+    // A second finger ARRIVED while we were dragging-to-build → cancel that
+    // build stroke (otherwise the pinch/pan would keep painting cells).
+    if (pointerDown) {
+      pointerDown = false;
+      lastEditedQuad = null;
+    }
   }
 }
 function onPointerMovePinch(ev) {
@@ -228,17 +263,36 @@ function onPointerMovePinch(ev) {
   if (activePointers.size === 2) {
     const pts = [...activePointers.values()];
     const d = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]) || 1;
-    // Spreading fingers (d grows) zooms IN with the new ortho camera.
+    // 1) Pinch distance → zoom.
     if (pinchStartDist > 0) {
       camera.zoom(d / pinchStartDist);
       if (onZoomChange) onZoomChange(camera.getZoom());
     }
     pinchStartDist = d;
+
+    // 2) Centroid movement → pan (world units derived from the current ortho
+    // extent so the on-screen drag distance matches the finger movement).
+    const c = pointerCentroid();
+    if (pinchStartCentroid) {
+      const dxPx = c[0] - pinchStartCentroid[0];
+      const dyPx = c[1] - pinchStartCentroid[1];
+      const rect = canvas.getBoundingClientRect();
+      // World units per CSS pixel: extent / (rect.height/2) on the binding axis.
+      const ext = camera.state.halfExtent / camera.state.zoom;
+      const worldPerPx = (2 * ext) / Math.min(rect.width, rect.height);
+      // Pan opposite to finger drag so content "follows" the fingers.
+      camera.pan(-dxPx * worldPerPx, dyPx * worldPerPx, currentBounds);
+      if (onCameraChange) onCameraChange();
+    }
+    pinchStartCentroid = c;
   }
 }
 function onPointerUpPinch(ev) {
   activePointers.delete(ev.pointerId);
-  if (activePointers.size < 2) pinchStartDist = 0;
+  if (activePointers.size < 2) {
+    pinchStartDist = 0;
+    pinchStartCentroid = null;
+  }
 }
 
 export function initView3d() {
@@ -280,5 +334,82 @@ export function initView3d() {
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   window.addEventListener('resize', resizeView3d);
+
+  // --- WASD keyboard pan ----------------------------------------------------
+  // Continuous: a key held → pan at ~7%/sec of the current ortho extent.
+  // Listen on window (no focusable canvas) but only act while the 3D tab is
+  // visible (parent #view-3d doesn't have the `hidden` attribute) and the
+  // active element isn't a form field (so typing in inputs doesn't pan).
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', releaseAllKeys);
+  startKeyboardLoop();
+
   return true;
+}
+
+// --- WASD continuous pan ----------------------------------------------------
+const heldKeys = new Set();
+let keyLoopId = null;
+let keyLoopLast = 0;
+
+function is3dVisible() {
+  const view = document.getElementById('view-3d');
+  return view && !view.hasAttribute('hidden');
+}
+function isFormFocused() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+function onKeyDown(e) {
+  if (!is3dVisible() || isFormFocused()) return;
+  const k = e.key.toLowerCase();
+  if (k === 'w' || k === 'a' || k === 's' || k === 'd') {
+    heldKeys.add(k);
+    e.preventDefault();
+  }
+}
+function onKeyUp(e) {
+  const k = e.key.toLowerCase();
+  if (heldKeys.has(k)) {
+    heldKeys.delete(k);
+    e.preventDefault();
+  }
+}
+function releaseAllKeys() { heldKeys.clear(); }
+
+function startKeyboardLoop() {
+  keyLoopLast = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  const tick = (now) => {
+    const dt = Math.max(0, (now - keyLoopLast) / 1000);
+    keyLoopLast = now;
+    if (camera && heldKeys.size > 0 && is3dVisible()) {
+      // World units / second: ~7% of current visible extent per key per second.
+      // Using the ortho extent at the CURRENT zoom keeps the perceived speed
+      // constant regardless of zoom level.
+      const ext = camera.state.halfExtent / camera.state.zoom;
+      const speed = ext * 0.7; // wu/s — ~7% of (2*ext) per second
+      let dx = 0, dy = 0;
+      if (heldKeys.has('w')) dy += speed * dt;
+      if (heldKeys.has('s')) dy -= speed * dt;
+      if (heldKeys.has('d')) dx += speed * dt;
+      if (heldKeys.has('a')) dx -= speed * dt;
+      if (dx !== 0 || dy !== 0) {
+        camera.pan(dx, dy, currentBounds);
+        if (onCameraChange) onCameraChange();
+      }
+    }
+    keyLoopId = requestAnimationFrame(tick);
+  };
+  keyLoopId = requestAnimationFrame(tick);
+}
+
+// Test hook: programmatically pan the camera (used by headless tests that can't
+// synthesize KeyboardEvents reliably). Exposed via the module's named export.
+export function panCamera(dx, dy) {
+  if (!camera) return;
+  camera.pan(dx, dy, currentBounds);
+  if (onCameraChange) onCameraChange();
 }

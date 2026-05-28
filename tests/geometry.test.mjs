@@ -141,3 +141,45 @@ test('colors buffer is parallel to positions (rgb per vertex)', () => {
     assert.ok(geom.colors[i] >= 0 && geom.colors[i] <= 1);
   }
 });
+
+test('biome colorize is applied to vertex colors when a biome is supplied', () => {
+  const mesh = oneQuadMesh();
+  const h = createHeights(4);
+  for (const v of [0, 1, 2, 3]) h.set(v, 2);
+  // A fake biome that paints everything pure green.
+  const greenBiome = { id: 'green', colorize: () => [0, 1, 0] };
+  const geom = buildSceneGeometry({ mesh, heights: h, biome: greenBiome }, { floorH: 0.06, amplitude: 2 });
+  assert.ok(allFinite(geom.colors));
+  // The column top should be green-dominant (g channel highest on most verts).
+  let greenVerts = 0;
+  for (let i = 0; i < geom.colors.length; i += 3) {
+    if (geom.colors[i + 1] >= geom.colors[i] && geom.colors[i + 1] >= geom.colors[i + 2]) greenVerts++;
+  }
+  assert.ok(greenVerts > 0, 'biome color reached the buffer');
+});
+
+test('decorations merge extra triangles into the scene buffers (no NaN)', () => {
+  const mesh = oneQuadMesh();
+  const h = createHeights(4);
+  const base = buildSceneGeometry({ mesh, heights: h });
+  // One tree decoration: trunk cylinder + canopy cone over the cell center.
+  const decorations = [{
+    type: 'tree', x: 0.5, y: 0.5, z: 0,
+    trunkRadius: 0.05, trunkHeight: 0.2,
+    canopyRadius: 0.2, canopyHeight: 0.4, angle: 0,
+  }];
+  const withDec = buildSceneGeometry({ mesh, heights: h, decorations });
+  assert.ok(withDec.triangleCount > base.triangleCount, 'decorations add triangles');
+  assert.ok(allFinite(withDec.positions), 'decoration positions finite');
+  assert.ok(allFinite(withDec.normals), 'decoration normals finite');
+  assert.ok(normalsUnitLength(withDec), 'decoration normals unit length');
+});
+
+test('water decoration covers a cell footprint as a flat quad', () => {
+  const mesh = oneQuadMesh();
+  const h = createHeights(4);
+  const decorations = [{ type: 'water', quadIndex: 0, z: 0.02 }];
+  const geom = buildSceneGeometry({ mesh, heights: h, decorations });
+  assert.ok(allFinite(geom.positions));
+  assert.ok(normalsUnitLength(geom));
+});

@@ -451,6 +451,19 @@ button:active { filter: brightness(0.94); }
   filter: brightness(1.08);
 }
 
+/* ── Biome picker — two stacked rows of three segmented buttons ──────────── */
+.biome-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+/* Tighter labels so all six biome names fit the narrow side panel. */
+.biome-grid .seg-btn {
+  font-size: 0.64rem;
+  letter-spacing: 0.01em;
+  padding: 0.4rem 0.25rem;
+}
+
 /* Range slider — minimal, dark-panel style */
 input[type="range"] {
   -webkit-appearance: none;

@@ -2,6 +2,7 @@
 // <aside id="terrain-controls">. Reuses the Grid tab's .ctrl-* styles.
 //
 // Controls:
+//   Biome       grid of six segmented buttons → onChange({ biome })
 //   Zoom        slider  → onChange({ zoom })
 //   Orientation 4-way segmented (N/E/S/W) → onChange({ orientation })
 //   Randomize   button  → onRandomize()  (new terrain seed)
@@ -10,8 +11,8 @@
 //   Flatten     button  → onFlatten()    (clear heights to 0)
 //
 // createTerrainControls(handlers, initial) builds the markup, appends it to the
-// aside, and returns { getParams, setZoom, setOrientation } so callers can read
-// state or reflect external changes (e.g. wheel zoom) back into the UI.
+// aside, and returns { getParams, setZoom, setOrientation, setBiome } so callers
+// can read state or reflect external changes (e.g. wheel zoom) back into the UI.
 
 function makeSlider(id, label, min, max, step, value, fmt) {
   const container = document.createElement('div');
@@ -47,6 +48,72 @@ function makeSlider(id, label, min, max, step, value, fmt) {
   });
 
   return { container, input, readout };
+}
+
+// Biome picker — a 2×3 grid of segmented buttons (Dunes / Mountains / Forest
+// in row 1, Meadows / Swamps / Quarry in row 2). Same .seg-btn/.seg-active
+// styling as the orientation picker, just stacked into rows so it fits the
+// narrow side panel and stacks cleanly on mobile.
+function makeBiomePicker(biomes, initialId, onPick) {
+  const container = document.createElement('div');
+  container.className = 'ctrl-row';
+
+  const header = document.createElement('div');
+  header.className = 'ctrl-header';
+  const lbl = document.createElement('span');
+  lbl.className = 'ctrl-label';
+  lbl.textContent = 'Biome';
+  header.appendChild(lbl);
+  container.appendChild(header);
+
+  // Wrap in a flex-column so multiple .seg-group rows stack tightly.
+  const stack = document.createElement('div');
+  stack.className = 'biome-grid';
+
+  let current = initialId;
+  const buttons = new Map();
+
+  const applyVisual = () => {
+    for (const [id, btn] of buttons) {
+      const active = id === current;
+      btn.classList.toggle('seg-active', active);
+      btn.setAttribute('aria-checked', active ? 'true' : 'false');
+    }
+  };
+
+  // Two rows of three (6 biomes / 3 per row = 2 rows).
+  for (let row = 0; row < 2; row++) {
+    const group = document.createElement('div');
+    group.className = 'seg-group';
+    group.setAttribute('role', 'radiogroup');
+    group.setAttribute('aria-label', 'Biome ' + (row === 0 ? 'row 1' : 'row 2'));
+    for (let col = 0; col < 3; col++) {
+      const i = row * 3 + col;
+      if (i >= biomes.length) break;
+      const b = biomes[i];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'seg-btn';
+      btn.textContent = b.label;
+      btn.setAttribute('role', 'radio');
+      btn.dataset.biome = b.id;
+      btn.addEventListener('click', () => {
+        if (current !== b.id) {
+          current = b.id;
+          applyVisual();
+          onPick(current);
+        }
+      });
+      buttons.set(b.id, btn);
+      group.appendChild(btn);
+    }
+    stack.appendChild(group);
+  }
+
+  container.appendChild(stack);
+  applyVisual();
+
+  return { container, get: () => current, set: (id) => { current = id; applyVisual(); } };
 }
 
 // A 4-way segmented orientation selector (N/E/S/W). Calls onPick(k) with 0..3.
@@ -109,11 +176,12 @@ function makeOrientation(initial, onPick) {
 /**
  * Inject + wire the 3D terrain controls.
  * @param {{
- *   onChange:(params:{zoom,orientation,amplitude,roughness})=>void,
+ *   onChange:(params:{biome,zoom,orientation,amplitude,roughness})=>void,
  *   onRandomize:()=>void,
  *   onFlatten:()=>void,
+ *   biomes?: Array<{id,label}>,
  * }} handlers
- * @param {{ zoom?:number, orientation?:number, amplitude?:number, roughness?:number }} [initial]
+ * @param {{ biome?:string, zoom?:number, orientation?:number, amplitude?:number, roughness?:number }} [initial]
  */
 export function createTerrainControls(handlers = {}, initial = {}) {
   const aside = document.getElementById('terrain-controls');
@@ -122,7 +190,9 @@ export function createTerrainControls(handlers = {}, initial = {}) {
   const onChange = handlers.onChange || (() => {});
   const onRandomize = handlers.onRandomize || (() => {});
   const onFlatten = handlers.onFlatten || (() => {});
+  const biomes = handlers.biomes || [];
 
+  const biome0 = initial.biome != null ? initial.biome : (biomes[0] && biomes[0].id) || 'dunes';
   const zoom0 = initial.zoom != null ? initial.zoom : 1;
   const orient0 = initial.orientation != null ? initial.orientation : 0;
   const amp0 = initial.amplitude != null ? initial.amplitude : 4;
@@ -136,6 +206,14 @@ export function createTerrainControls(handlers = {}, initial = {}) {
   sub.textContent = 'fixed isometric playground';
   aside.appendChild(h1);
   aside.appendChild(sub);
+
+  // --- Biome picker (2×3 segmented) ---
+  // (Placed first so it reads as the primary choice; sliders below tune it.)
+  let biomePicker = { get: () => biome0, set: () => {} };
+  if (biomes.length) {
+    biomePicker = makeBiomePicker(biomes, biome0, () => onChange(getParams()));
+    aside.appendChild(biomePicker.container);
+  }
 
   // --- Randomize button ---
   const randomBtn = document.createElement('button');
@@ -190,13 +268,14 @@ export function createTerrainControls(handlers = {}, initial = {}) {
   aside.appendChild(flattenBtn);
 
   const getParams = () => ({
+    biome: biomePicker.get(),
     zoom: Number(inputZoom.value),
     orientation: orientation.get(),
     amplitude: Math.round(Number(inputAmp.value)),
     roughness: Number(inputRough.value),
   });
 
-  // Wire change events. Orientation is handled in its own onPick (fires onChange).
+  // Wire change events. Orientation + biome are handled in their own onPick.
   inputZoom.addEventListener('input', () => onChange(getParams()));
   inputAmp.addEventListener('input', () => onChange(getParams()));
   inputRough.addEventListener('input', () => onChange(getParams()));
@@ -210,6 +289,9 @@ export function createTerrainControls(handlers = {}, initial = {}) {
     },
     setOrientation(k) {
       orientation.set(k);
+    },
+    setBiome(id) {
+      biomePicker.set(id);
     },
   };
 }

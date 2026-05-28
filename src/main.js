@@ -1,18 +1,19 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=1689f3b0';
-import { randomSeed } from './rng.js?v=1689f3b0';
-import { drawMesh, drawDualCells } from './render2d.js?v=1689f3b0';
-import { createControls, setSeedDisplay } from './controls.js?v=1689f3b0';
-import { buildHalfEdge } from './halfedge.js?v=1689f3b0';
-import { extractDualCells, hitTestVertex } from './dual.js?v=1689f3b0';
-import { createState } from './state.js?v=1689f3b0';
-import { initTabs } from './tabs.js?v=1689f3b0';
-import { createHeights } from './structures/heights.js?v=1689f3b0';
-import { generateTerrain } from './structures/terrain.js?v=1689f3b0';
-import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange } from './gl/view3d.js?v=1689f3b0';
-import { createTerrainControls } from './gl/terrain-controls.js?v=1689f3b0';
+import { generateMesh, makeRelaxer } from './grid.js?v=eb73a4b5';
+import { randomSeed } from './rng.js?v=eb73a4b5';
+import { drawMesh, drawDualCells } from './render2d.js?v=eb73a4b5';
+import { createControls, setSeedDisplay } from './controls.js?v=eb73a4b5';
+import { buildHalfEdge } from './halfedge.js?v=eb73a4b5';
+import { extractDualCells, hitTestVertex } from './dual.js?v=eb73a4b5';
+import { createState } from './state.js?v=eb73a4b5';
+import { initTabs } from './tabs.js?v=eb73a4b5';
+import { createHeights } from './structures/heights.js?v=eb73a4b5';
+import { BIOMES, getBiome } from './structures/biomes.js?v=eb73a4b5';
+import { generateDecorations } from './structures/decorations.js?v=eb73a4b5';
+import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange } from './gl/view3d.js?v=eb73a4b5';
+import { createTerrainControls } from './gl/terrain-controls.js?v=eb73a4b5';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -105,9 +106,15 @@ let cornerState = null;
 let heights = null;
 
 // Terrain params for the 3D playground. `seed` drives the procedural relief;
-// Randomize picks a new seed; Height/Roughness sliders regenerate at the same
-// seed. orientation + zoom drive the fixed-iso camera (not the height field).
-let terrainParams = { seed: randomSeed(), amplitude: 4, roughness: 4, orientation: 0, zoom: 1 };
+// `biome` picks which generator + color scheme shapes it; Randomize picks a
+// new seed; Height/Roughness sliders regenerate at the same seed. orientation
+// + zoom drive the fixed-iso camera (not the height field).
+let terrainParams = { biome: 'dunes', seed: randomSeed(), amplitude: 4, roughness: 4, orientation: 0, zoom: 1 };
+
+// Decorations cache for the active biome (rebuilt with the height field). The
+// view3d geometry builder pulls these via setSceneExtras() so the cached
+// rebuild path stays the single source of truth.
+let decorations = [];
 
 const CONVERGENCE_THRESHOLD = 1e-4; // stop early if displacement drops below this
 
@@ -129,7 +136,27 @@ function urlOverrides() {
     const n = Math.round(Number(q.get('rings')));
     if (Number.isFinite(n) && n >= 2 && n <= 6) out.rings = n;
   }
+  // ?biome=<id> deterministically boots the 3D tab in a given biome (so each
+  // biome's screenshot can target it). Validated against the biome registry.
+  const biome = q.get('biome');
+  if (biome && BIOMES.some((b) => b.id === biome)) out.biome = biome;
   return out;
+}
+
+// Read the biome from the URL once at startup (used to seed terrainParams.biome
+// before the controls panel is constructed).
+function urlBiome() {
+  if (typeof location === 'undefined') return null;
+  const b = new URLSearchParams(location.search).get('biome');
+  return b && BIOMES.some((x) => x.id === b) ? b : null;
+}
+
+// ?amp=<1..8> overrides the initial amplitude (used to verify max-height
+// centering in headless screenshots). Returns null if unset/invalid.
+function urlAmplitude() {
+  if (typeof location === 'undefined') return null;
+  const a = Math.round(Number(new URLSearchParams(location.search).get('amp')));
+  return Number.isFinite(a) && a >= 1 && a <= 8 ? a : null;
 }
 
 // Build half-edge + dual cells + a fresh corner state from the settled mesh.
@@ -157,17 +184,47 @@ function buildConnectivity() {
   markView3dDirty();
 }
 
-// Fill the shared height field from procedural terrain at the current params.
-// Replaces the field's contents (terrain owns it). No-op if no mesh/heights yet.
+// Fill the shared height field from the active biome's generator at the current
+// params, then recompute the biome's decorations. Replaces the field's contents
+// (terrain owns it). No-op if no mesh/heights yet. Marks the 3D view dirty so
+// the geometry rebuild picks up the new heights + decorations, then reframes
+// the camera (heights can scale very differently across biomes).
 function applyTerrain() {
   if (!heights || !currentMesh || !currentMesh.vertices) return;
-  const hs = generateTerrain(currentMesh, {
+  const biome = getBiome(terrainParams.biome);
+  const hs = biome.generate(currentMesh, {
     seed: terrainParams.seed,
     amplitude: terrainParams.amplitude,
     roughness: terrainParams.roughness,
   });
+  // Replace the whole field (set() clamps to non-negative ints).
   for (let i = 0; i < hs.length; i++) heights.set(i, hs[i]);
+  // Recompute decorations for the new heights / biome (deterministic per seed).
+  decorations = generateDecorations({
+    biome: terrainParams.biome,
+    mesh: currentMesh,
+    heights,
+    seed: terrainParams.seed,
+    floorH: 0.06,
+  });
   markView3dDirty();
+  reframeCamera();
+}
+
+// Re-frame the iso camera on the current scene bounds. We derive the bounds
+// from the mesh planar extent + the current max height so framing accounts for
+// tall terrain even before the next geometry rebuild runs.
+function reframeCamera() {
+  const cam = getCamera();
+  if (!cam || !currentMesh || !currentMesh.vertices || !currentMesh.vertices.length) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of currentMesh.vertices) {
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+  }
+  if (!Number.isFinite(minX)) return;
+  const maxZ = (heights ? heights.max() : 0) * 0.06;
+  cam.reframe({ min: [minX, minY, 0], max: [maxX, maxY, Math.max(maxZ, 0.06)] });
 }
 
 // For each painted dual cell, ensure heights.get(vertexIndex) >= 1. Idempotent.
@@ -345,10 +402,30 @@ canvas.addEventListener('pointerleave', endPaint);
 // --- tabs ---------------------------------------------------------------
 initTabs();
 
+// Seed the active biome from the URL (?biome=<id>) so each biome's screenshot
+// can target it deterministically; defaults to 'dunes' (today's look).
+const bootBiome = urlBiome();
+if (bootBiome) terrainParams.biome = bootBiome;
+const bootAmp = urlAmplitude();
+if (bootAmp != null) terrainParams.amplitude = bootAmp;
+
 // --- 3D WebGL view ------------------------------------------------------
 // Owns the #gl-canvas + fixed-iso ortho camera + drag-to-build. The mesh +
 // heights are shared (never regenerated on tab switch); the RAF loop feeds them.
 initView3d();
+
+// Feed the geometry builder the active biome's color scheme + decorations so
+// the cached rebuild path (in view3d) colors + decorates the scene.
+setSceneExtras(() => ({
+  biome: getBiome(terrainParams.biome),
+  decorations,
+  amplitude: terrainParams.amplitude,
+}));
+
+// A camera-target change (WASD / two-finger pan) just needs the next RAF to
+// redraw; the loop already does that, so this is a no-op hook for now (kept so
+// view3d has somewhere to notify without coupling to the loop).
+setOnCameraChange(() => {});
 
 // Apply the initial camera zoom/orientation (the camera frames the mesh on its
 // first real geometry; these set the playground defaults on top of that).
@@ -361,15 +438,19 @@ if (_cam) {
 // --- 3D terrain controls panel ------------------------------------------
 const terrainUI = createTerrainControls(
   {
-    // Zoom/orientation drive the camera; Height/Roughness regenerate terrain.
+    biomes: BIOMES.map((b) => ({ id: b.id, label: b.label })),
+    // Biome/Height/Roughness regenerate terrain; zoom/orientation drive camera.
     onChange: (p) => {
+      const orientationChanged = p.orientation !== terrainParams.orientation;
       terrainParams = { ...terrainParams, ...p };
       const cam = getCamera();
       if (cam) {
         cam.setZoom(terrainParams.zoom);
         cam.setOrientation(terrainParams.orientation);
       }
-      applyTerrain(); // regenerate relief at the current seed/amplitude/roughness
+      applyTerrain(); // regenerate relief + decorations + reframe
+      // Re-frame on orientation change too (the iso-projected bbox depends on it).
+      if (orientationChanged) reframeCamera();
     },
     onRandomize: () => {
       terrainParams.seed = randomSeed();
@@ -378,11 +459,14 @@ const terrainUI = createTerrainControls(
     onFlatten: () => {
       if (heights) {
         heights.clear();
+        decorations = [];
         markView3dDirty();
+        reframeCamera();
       }
     },
   },
   {
+    biome: terrainParams.biome,
     zoom: terrainParams.zoom,
     orientation: terrainParams.orientation,
     amplitude: terrainParams.amplitude,
