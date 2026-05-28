@@ -8,10 +8,10 @@
 //   resizeView3d()                            re-measure on tab switch / resize
 //   markView3dDirty()                         force a geometry rebuild next draw
 
-import { createRenderer } from './renderer.js?v=eb73a4b5';
-import { createCamera } from './camera.js?v=eb73a4b5';
-import { multiply, invert, transformPoint } from './mat4.js?v=eb73a4b5';
-import { buildSceneGeometry } from '../structures/geometry.js?v=eb73a4b5';
+import { createRenderer } from './renderer.js?v=086a836c';
+import { createCamera } from './camera.js?v=086a836c';
+import { multiply, invert, transformPoint } from './mat4.js?v=086a836c';
+import { buildSceneGeometry } from '../structures/geometry.js?v=086a836c';
 
 const FLOOR_H = 0.06; // world-units per floor (matches relax SIDE_LENGTH)
 
