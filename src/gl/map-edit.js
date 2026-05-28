@@ -64,3 +64,43 @@ export function cellTopHeight(mesh, cellIdx, heights) {
   for (let i = 0; i < 4; i++) { const h = heights[q[i]] || 0; if (h > m) m = h; }
   return m;
 }
+
+// generateDecorations + buildSceneGeometry read heights through an object with
+// .get/.max; our edit store keeps a plain number[]. This adapts the array.
+function heightsView(arr) {
+  return {
+    get: (v) => (v >= 0 && v < arr.length ? (arr[v] | 0) : 0),
+    max: () => { let m = 0; for (const h of arr) if (h > m) m = h; return m; },
+    forEach: (cb) => arr.forEach((h, i) => cb(h, i)),
+    get size() { return arr.length; },
+  };
+}
+
+// Resolve the cell a decoration record sits on. Water carries quadIndex; others
+// carry x,y → point-in-quad. Returns a cell index (>=0) or 0 as a safe fallback.
+function recordCell(mesh, d) {
+  if (Number.isInteger(d.quadIndex)) return d.quadIndex;
+  if (typeof d.x === 'number' && typeof d.y === 'number') {
+    const c = cellAt(mesh, d.x, d.y);
+    return c >= 0 ? c : 0;
+  }
+  return 0;
+}
+
+// Bake a tile's procedural output into an editable edit-state (idempotent).
+// `mesh` is the tile's relaxed hex patch (caller supplies; see map-view cache).
+export function bakeIfNeeded(tile, mesh) {
+  if (tile.edit) return tile.edit;
+  const biome = getBiome(tile.biomeId);
+  const generated = biome.generate(mesh, {
+    seed: tile.seed, amplitude: biome.maxHeight, roughness: 4,
+  });
+  const heights = generated.map((h) => Math.max(0, Math.round(h)));
+  const decs = generateDecorations({
+    biome: tile.biomeId, mesh, heights: heightsView(heights),
+    seed: tile.seed, floorH: FLOOR_H,
+  });
+  const objects = decs.map((d) => ({ ...d, cell: recordCell(mesh, d) }));
+  tile.edit = { heights, objects, epoch: 1 };
+  return tile.edit;
+}
