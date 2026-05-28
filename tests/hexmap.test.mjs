@@ -159,6 +159,11 @@ test('setBiome: swaps the biome id, keeps the grid seed', () => {
   assert.equal(t.biomeId, 'water');
 });
 
+test('tiles start with edit === null (procedural until focused)', () => {
+  const map = createHexMap({ radius: 1, seed: 1 });
+  for (const t of map.tiles) assert.equal(t.edit, null, `tile (${t.q},${t.r}) edit null`);
+});
+
 test('neighbors: center tile has 6, edge tiles fewer', () => {
   const map = createHexMap({ radius: 2, seed: 1 });
   const center = map.getTile(0, 0);

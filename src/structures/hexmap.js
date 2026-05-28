@@ -101,6 +101,7 @@ export function createHexMap({ radius = 2, seed = 0, ringsPerTile = 3, spacing =
         center: tileCenter(q, r, m1, m2),
         biomeId,
         seed: tileSeed(seed, q, r),
+        edit: null, // { heights:number[], objects:Record[], epoch } once edited (map-edit.js)
       };
       tiles.push(tile);
       byKey.set(q + ',' + r, tile);
