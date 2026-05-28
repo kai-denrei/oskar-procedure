@@ -29,7 +29,7 @@ import { getBiome, BIOMES } from '../structures/biomes.js?v=02391cf2';
 import { createHeights } from '../structures/heights.js?v=02391cf2';
 import { generateDecorations } from '../structures/decorations.js?v=02391cf2';
 import { buildSceneGeometry } from '../structures/geometry.js?v=02391cf2';
-import { bakeIfNeeded, buildFocusGeometry, cellAt, cellInradius, sculpt as editSculpt, placeObject as editPlace, eraseAt as editErase, ERASE_RADIUS_FACTOR } from './map-edit.js?v=02391cf2';
+import { bakeIfNeeded, buildFocusGeometry, cellAt, cellInradius, cellCentroid, sculpt as editSculpt, placeObject as editPlace, eraseAt as editErase, ERASE_RADIUS_FACTOR } from './map-edit.js?v=02391cf2';
 
 const FLOOR_H = 0.06; // world-units per floor (matches view3d / relax SIDE_LENGTH)
 // Sea plane sits just under the tiles' base slab so the land reads as islands
@@ -500,6 +500,27 @@ export function applyFocusEdit(op, payload = {}) {
   }
   if (ok) rebuildFocus();
   return ok;
+}
+
+// DEMO/test hook: place one of each object + a raised block on the focused tile,
+// on spread cells, for a deterministic verification screenshot. Returns false if
+// not focused.
+export function demoShowcaseEdit() {
+  if (!focusedTile || !liveMap) return false;
+  const mesh = tileMesh(focusedTile, liveMap);
+  const biome = getBiome(focusedTile.biomeId);
+  const n = mesh.quads.length;
+  const cell = (frac) => Math.min(n - 1, Math.max(0, Math.round(frac * (n - 1))));
+  const place = (type, frac) => editPlace(focusedTile, type, mesh, cellCentroid(mesh, cell(frac)));
+  place('tree', 0.20);
+  place('rock', 0.42);
+  place('building', 0.64);
+  place('water', 0.84);
+  const sc = cell(0.10);
+  editSculpt(focusedTile, sc, +1, biome.maxHeight, mesh);
+  editSculpt(focusedTile, sc, +1, biome.maxHeight, mesh);
+  rebuildFocus();
+  return true;
 }
 
 let lastSculptCell = -1; // avoid re-editing the same cell while dragging

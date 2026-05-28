@@ -15,7 +15,7 @@ import { generateDecorations } from './structures/decorations.js?v=02391cf2';
 import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=02391cf2';
 import { createTerrainControls } from './gl/terrain-controls.js?v=02391cf2';
 import { createHexMap } from './structures/hexmap.js?v=02391cf2';
-import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused, enterFocus, applyFocusEdit } from './gl/map-view.js?v=02391cf2';
+import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused, enterFocus, applyFocusEdit, demoShowcaseEdit } from './gl/map-view.js?v=02391cf2';
 import { createMapControls } from './gl/map-controls.js?v=02391cf2';
 import { createMapEditControls } from './gl/map-edit-controls.js?v=02391cf2';
 
@@ -647,12 +647,16 @@ if (DEMO && typeof window !== 'undefined') {
     const t = hexMap && hexMap.getTile(q, r);
     return t ? enterFocus(t) : false;
   };
+  // DEMO showcase: place objects + sculpt on the focused tile for a deterministic
+  // verification screenshot. Inert in production (outside the DEMO block).
+  window.__mapShowcase = () => demoShowcaseEdit();
   const focusParam = new URLSearchParams(location.search).get('focus');
   if (focusParam) {
     const [qs, rs] = focusParam.split(',');
     // Defer until after the first render frame sets map-view's liveMap (enterFocus needs it).
     requestAnimationFrame(() => requestAnimationFrame(() => {
       window.__mapFocus(parseInt(qs, 10), parseInt(rs, 10));
+      if (new URLSearchParams(location.search).get('edit') === 'showcase') window.__mapShowcase();
     }));
   }
 
