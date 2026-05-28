@@ -5,6 +5,7 @@
 import { buildSceneGeometry } from '../structures/geometry.js?v=02391cf2';
 import { getBiome } from '../structures/biomes.js?v=02391cf2';
 import { generateDecorations } from '../structures/decorations.js?v=02391cf2';
+import { getObjectDef } from '../structures/objects.js';
 
 export const FLOOR_H = 0.06;            // world units per floor (matches map-view)
 
@@ -119,6 +120,29 @@ export function sculpt(tile, cellIdx, dir, maxHeight, mesh) {
   for (let i = 0; i < 4; i++) e.heights[q[i]] = target;
   e.epoch++;
   return target;
+}
+
+export const ERASE_RADIUS_FACTOR = 0.6; // × cell inradius
+
+// Place an object of `type` at ground point [x,y] (already in the tile's local
+// frame). Clamps inside the picked cell, sets z to the cell's surface top,
+// appends to tile.edit.objects, bumps epoch. Returns false if off any cell.
+export function placeObject(tile, type, mesh, point) {
+  const def = getObjectDef(type);
+  if (!def) return false;
+  const cell = cellAt(mesh, point[0], point[1]);
+  if (cell < 0) return false;
+  const [cx, cy] = cellCentroid(mesh, cell);
+  const inr = cellInradius(mesh, cell);
+  // clamp the point to within 0.8·inradius of the centroid (keeps it in-cell)
+  let dx = point[0] - cx, dy = point[1] - cy;
+  const d = Math.hypot(dx, dy), lim = inr * 0.8;
+  if (d > lim && d > 0) { dx = dx / d * lim; dy = dy / d * lim; }
+  const z = cellTopHeight(mesh, cell, tile.edit.heights) * FLOOR_H;
+  const rec = def.make({ x: cx + dx, y: cy + dy, z, cell, inr });
+  tile.edit.objects.push(rec);
+  tile.edit.epoch++;
+  return true;
 }
 
 // Refresh each object's z to its cell's current surface top (objects ride

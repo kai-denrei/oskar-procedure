@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cellAt, cellCentroid, cellInradius, cellTopHeight, bakeIfNeeded, sculpt, buildFocusGeometry, FLOOR_H } from '../src/gl/map-edit.js';
+import { cellAt, cellCentroid, cellInradius, cellTopHeight, bakeIfNeeded, sculpt, buildFocusGeometry, FLOOR_H, placeObject } from '../src/gl/map-edit.js';
 import { generateMesh, relax } from '../src/grid.js';
 
 function patch(seed) {
@@ -109,4 +109,28 @@ test('objects ride terrain: an object z follows its cell top after sculpt', () =
   sculpt(tile, 0, +1, 7, m);          // cell 0 now height 1
   buildFocusGeometry(tile, m);         // refreshes object z in place
   assert.equal(edit.objects[0].z, 1 * FLOOR_H, 'tree z lifted to cell top');
+});
+
+// Task 14: placeObject
+test('placeObject appends a record at the picked cell with z = cell top', () => {
+  const tile = { biomeId: 'meadows', seed: 7, edit: { heights: [0,0,0,0,0,0], objects: [], epoch: 1 } };
+  const m = patch(7);
+  const n0 = tile.edit.objects.length;
+  const [cx, cy] = cellCentroid(m, 0);
+  const ok = placeObject(tile, 'tree', m, [cx, cy]);
+  assert.equal(ok, true);
+  assert.equal(tile.edit.objects.length, n0 + 1);
+  const obj = tile.edit.objects[tile.edit.objects.length - 1];
+  assert.equal(obj.type, 'tree');
+  assert.equal(obj.cell, 0);
+  assert.equal(obj.z, 0); // cell 0 at height 0 → z 0
+  assert.equal(tile.edit.epoch, 2);
+});
+
+test('placeObject returns false off-cell (no append)', () => {
+  const tile = { biomeId: 'meadows', seed: 7, edit: { heights: [0,0,0,0,0,0], objects: [], epoch: 1 } };
+  const m = patch(7);
+  const ok = placeObject(tile, 'tree', m, [999, 999]);
+  assert.equal(ok, false);
+  assert.equal(tile.edit.objects.length, 0);
 });
