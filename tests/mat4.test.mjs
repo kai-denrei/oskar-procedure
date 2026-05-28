@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  identity, multiply, perspective, lookAt, translate, scale,
+  identity, multiply, perspective, ortho, lookAt, translate, scale,
   rotateX, rotateY, transformPoint, invert,
 } from '../src/gl/mat4.js';
 
@@ -52,6 +52,42 @@ test('perspective matches the known reference matrix', () => {
     0, 0, -3, 0,
   ];
   assertMatApprox(P, want);
+});
+
+test('ortho matches the known reference matrix', () => {
+  // ortho(-2,2,-1,1,1,5). lr=1/(left-right)=1/-4, bt=1/(bottom-top)=1/-2,
+  // nf=1/(near-far)=1/-4. m[0]=-2lr=0.5, m[5]=-2bt=1, m[10]=2nf=-0.5,
+  // m[12]=(l+r)lr=0, m[13]=(t+b)bt=0, m[14]=(f+n)nf=6/-4=-1.5, m[15]=1.
+  const O = ortho(-2, 2, -1, 1, 1, 5);
+  const want = [
+    0.5, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, -0.5, 0,
+    0, 0, -1.5, 1,
+  ];
+  assertMatApprox(O, want);
+});
+
+test('ortho maps box corners to the NDC cube', () => {
+  // Box [left,right]×[bottom,top]×[-near,-far] (view space, camera looks -z).
+  const O = ortho(-3, 5, -2, 6, 1, 10);
+  // left/bottom/-near corner -> (-1,-1,-1); right/top/-far -> (1,1,1).
+  const lo = transformPoint(O, [-3, -2, -1]); // -near = -1
+  const hi = transformPoint(O, [5, 6, -10]);  // -far  = -10
+  assert.ok(approx(lo[0], -1) && approx(lo[1], -1) && approx(lo[2], -1), `lo ${lo}`);
+  assert.ok(approx(hi[0], 1) && approx(hi[1], 1) && approx(hi[2], 1), `hi ${hi}`);
+  // center of the box -> origin of NDC.
+  const mid = transformPoint(O, [1, 2, -5.5]); // mid x=1, y=2, z=-(1+10)/2
+  assert.ok(approx(mid[0], 0) && approx(mid[1], 0) && approx(mid[2], 0), `mid ${mid}`);
+});
+
+test('ortho is parallel — no perspective divide (w stays 1)', () => {
+  const O = ortho(-1, 1, -1, 1, 0.1, 100);
+  // The bottom row is [0,0,0,1], so w = 1 for any input → no foreshortening.
+  assert.equal(O[3], 0);
+  assert.equal(O[7], 0);
+  assert.equal(O[11], 0);
+  assert.equal(O[15], 1);
 });
 
 test('lookAt matches a known reference (eye on +z looking at origin)', () => {

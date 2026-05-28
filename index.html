@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>oskar-procedure — organic quad grid</title>
-  <link rel="stylesheet" href="styles.css?v=2b44eac3">
+  <link rel="stylesheet" href="styles.css?v=1689f3b0">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="cb" content="2b44eac3">
-  <link rel="icon" type="image/svg+xml" href="cb-shapes/43.svg?v=2b44eac3">
-  <script src="cb-badge.js?v=2b44eac3" defer></script>
+  <meta name="cb" content="1689f3b0">
+  <link rel="icon" type="image/svg+xml" href="cb-shapes/22.svg?v=1689f3b0">
+  <script src="cb-badge.js?v=1689f3b0" defer></script>
 
   <!-- PWA: manifest + theme + iOS tags (all relative for base-path portability) -->
-  <link rel="manifest" href="manifest.webmanifest?v=2b44eac3">
+  <link rel="manifest" href="manifest.webmanifest?v=1689f3b0">
   <meta name="theme-color" content="#14130f">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=2b44eac3">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=1689f3b0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -46,10 +46,14 @@
       </aside>
     </section>
 
-    <!-- 3D WebGL view: orbit + build-by-stacking -->
+    <!-- 3D WebGL view: fixed-isometric terrain playground (stage + controls) -->
     <section id="view-3d" class="view" role="tabpanel" aria-labelledby="tab-3d" hidden>
-      <canvas id="gl-canvas" aria-label="3D structures WebGL canvas"></canvas>
-      <p id="iso-hint">drag: orbit · click: raise · ⇧click: lower</p>
+      <main id="gl-stage">
+        <canvas id="gl-canvas" aria-label="3D isometric terrain WebGL canvas"></canvas>
+        <p id="iso-hint">drag: build · ⇧drag: lower</p>
+      </main>
+
+      <aside id="terrain-controls"></aside>
     </section>
 
     <!-- About view -->
@@ -152,7 +156,7 @@
 
   </div><!-- #views -->
 
-  <script type="module" src="src/main.js?v=2b44eac3"></script>
-  <script type="module" src="src/pwa.js?v=2b44eac3"></script>
+  <script type="module" src="src/main.js?v=1689f3b0"></script>
+  <script type="module" src="src/pwa.js?v=1689f3b0"></script>
 </body>
 </html>

@@ -51,6 +51,22 @@ export function perspective(fovyRad, aspect, near, far) {
   ];
 }
 
+// Orthographic projection (right-handed, clip-space z in [-1,1]). Parallel
+// projection — the "isometric" look (no perspective foreshortening). Maps the
+// box [left,right]×[bottom,top]×[-near,-far] (view space, camera looks down -z)
+// onto the NDC cube [-1,1]³. Matches gl-matrix / glm `ortho`.
+export function ortho(left, right, bottom, top, near, far) {
+  const lr = 1 / (left - right);
+  const bt = 1 / (bottom - top);
+  const nf = 1 / (near - far);
+  return [
+    -2 * lr, 0, 0, 0,
+    0, -2 * bt, 0, 0,
+    0, 0, 2 * nf, 0,
+    (left + right) * lr, (top + bottom) * bt, (far + near) * nf, 1,
+  ];
+}
+
 // View matrix looking from `eye` toward `center` with `up`. Right-handed.
 export function lookAt(eye, center, up) {
   const ex = eye[0], ey = eye[1], ez = eye[2];

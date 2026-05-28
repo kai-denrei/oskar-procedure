@@ -1,25 +1,34 @@
-// view3d.js — owns the #gl-canvas in #view-3d: WebGL renderer + orbit camera +
-// a cached scene geometry (rebuilt only when {mesh, heights} change). Drives
-// the orbit + click-to-raise interaction. The mesh/heights state is OWNED by
-// main.js and passed into drawView3d() each frame.
+// view3d.js — owns the #gl-canvas in #view-3d: WebGL renderer + FIXED-ISO
+// ortho camera + a cached scene geometry (rebuilt only when {mesh, heights}
+// change). Drives the drag-to-build interaction (no orbit) + wheel/pinch zoom.
+// The mesh/heights state is OWNED by main.js and passed into drawView3d().
 //
 //   initView3d()                              wire canvas, GL, pointer handlers
 //   drawView3d({ mesh, heights, dualCells })  rebuild geom if dirty, draw
 //   resizeView3d()                            re-measure on tab switch / resize
 //   markView3dDirty()                         force a geometry rebuild next draw
 
-import { createRenderer } from './renderer.js?v=2b44eac3';
-import { createCamera } from './camera.js?v=2b44eac3';
-import { multiply, invert, transformPoint } from './mat4.js?v=2b44eac3';
-import { buildSceneGeometry } from '../structures/geometry.js?v=2b44eac3';
+import { createRenderer } from './renderer.js?v=1689f3b0';
+import { createCamera } from './camera.js?v=1689f3b0';
+import { multiply, invert, transformPoint } from './mat4.js?v=1689f3b0';
+import { buildSceneGeometry } from '../structures/geometry.js?v=1689f3b0';
 
 const FLOOR_H = 0.06; // world-units per floor (matches relax SIDE_LENGTH)
-const DRAG_THRESHOLD = 5; // px of pointer movement that turns a click into a drag
-const ORBIT_SPEED = 0.008; // radians per CSS pixel
 
 let canvas = null;
 let renderer = null;
 let camera = null;
+
+// Notified when the wheel changes zoom, so the panel slider can reflect it.
+let onZoomChange = null;
+export function setOnZoomChange(cb) {
+  onZoomChange = cb;
+}
+
+// Expose the camera so main.js can drive zoom / orientation from the panel.
+export function getCamera() {
+  return camera;
+}
 
 // Geometry cache + dirty tracking. We rebuild only when the inputs change.
 let cachedGeom = null;
@@ -32,12 +41,14 @@ let framedOnce = false;
 // State injected each frame so pointer handlers can pick against current data.
 let liveState = { mesh: null, heights: null, dualCells: null };
 
-// Pointer / drag-vs-click bookkeeping.
+// Pointer / drag-to-build bookkeeping. Dragging paints a terrain stroke: each
+// pointer sample picks a quad and raises (or lowers) it. We track the last
+// quad edited THIS stroke so dragging across one cell only edits it once per
+// pass (re-entering it after leaving edits it again).
 let pointerDown = false;
-let downX = 0, downY = 0, lastX = 0, lastY = 0;
-let moved = 0;
 let downShift = false;
 let downButton = 0;
+let lastEditedQuad = null; // reference to the quad array last edited this stroke
 
 export function markView3dDirty() {
   dirty = true;
@@ -95,10 +106,11 @@ export function resizeView3d() {
   if (renderer) renderer.resize();
 }
 
-// --- click-to-raise: unproject a click to the z=0 ground plane -------------
-// Build a world ray from the click's NDC, intersect z=0, hit-test the dual
-// cells, and raise/lower the picked vertex's height.
-function pickAndEdit(ev) {
+// --- drag-to-build: unproject a pointer to the z=0 ground plane ------------
+// Build a world ray from the pointer's NDC, intersect z=0, pick the quad under
+// it, and raise/lower that cell's 4 corners to a flat block. `force` edits even
+// if it's the same quad as last sample (used on pointerdown for a clean click).
+function pickAndEdit(ev, force = false) {
   const { mesh, heights } = liveState;
   if (!heights || !mesh || !mesh.quads || !mesh.quads.length) return;
 
@@ -124,11 +136,16 @@ function pickAndEdit(ev) {
   const wx = nearW[0] + t * (farW[0] - nearW[0]);
   const wy = nearW[1] + t * (farW[1] - nearW[1]);
 
-  // Pick the QUAD (cell) under the click and set its 4 corners to a common
-  // height, so a click builds a FLAT-topped block (one floor above the cell's
-  // current tallest corner); neighbours naturally terrace at shared corners.
+  // Pick the QUAD (cell) under the pointer.
   const quad = pickQuad([wx, wy], mesh);
   if (!quad) return;
+  // Skip if it's the same cell we just edited this stroke (one edit per pass).
+  if (!force && quad === lastEditedQuad) return;
+  lastEditedQuad = quad;
+
+  // Set the 4 corners to a common height: a FLAT-topped block, one floor above
+  // (or below) the cell's current tallest corner; neighbours terrace at shared
+  // corners. Shift or right-button lowers.
   const cur = Math.max(0, ...quad.map((vi) => heights.get(vi)));
   const lower = downShift || downButton === 2;
   const target = lower ? Math.max(0, cur - 1) : cur + 1;
@@ -162,45 +179,37 @@ function pointInPoly(p, idx, verts) {
 
 function onPointerDown(ev) {
   pointerDown = true;
-  downX = lastX = ev.clientX;
-  downY = lastY = ev.clientY;
-  moved = 0;
   downShift = ev.shiftKey;
   downButton = ev.button;
+  lastEditedQuad = null;
   canvas.setPointerCapture?.(ev.pointerId);
+  // A stationary click still raises once (force = ignore the same-quad guard).
+  pickAndEdit(ev, true);
 }
 
 function onPointerMove(ev) {
   if (!pointerDown) return;
-  const dx = ev.clientX - lastX;
-  const dy = ev.clientY - lastY;
-  lastX = ev.clientX;
-  lastY = ev.clientY;
-  moved += Math.abs(dx) + Math.abs(dy);
-
-  // Once past the threshold, treat as an orbit drag.
-  if (moved >= DRAG_THRESHOLD) {
-    // drag right -> rotate azimuth; drag up -> raise elevation.
-    camera.orbit(-dx * ORBIT_SPEED, dy * ORBIT_SPEED);
-  }
+  // Keep shift live during a drag (a stroke can change modifier mid-way).
+  downShift = ev.shiftKey || downButton === 2;
+  // Drag paints a terrain stroke: each new cell gets edited once per pass.
+  pickAndEdit(ev, false);
 }
 
 function onPointerUp(ev) {
   if (!pointerDown) return;
   pointerDown = false;
+  lastEditedQuad = null;
   canvas.releasePointerCapture?.(ev.pointerId);
-  const totalMove = Math.hypot(ev.clientX - downX, ev.clientY - downY);
-  if (totalMove < DRAG_THRESHOLD) {
-    // It was a click, not a drag: raise/lower the picked cell.
-    pickAndEdit(ev);
-  }
 }
 
 // --- wheel / pinch zoom ----------------------------------------------------
+// New ortho camera: zoom() multiplies the zoom level (>1 = zoom in). Scroll up
+// (deltaY < 0) zooms in, scroll down zooms out. Notify the panel slider.
 function onWheel(ev) {
   ev.preventDefault();
-  const factor = ev.deltaY > 0 ? 1.1 : 1 / 1.1;
+  const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
   camera.zoom(factor);
+  if (onZoomChange) onZoomChange(camera.getZoom());
 }
 
 // Pinch-to-zoom via two active pointers.
@@ -219,7 +228,11 @@ function onPointerMovePinch(ev) {
   if (activePointers.size === 2) {
     const pts = [...activePointers.values()];
     const d = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]) || 1;
-    if (pinchStartDist > 0) camera.zoom(pinchStartDist / d);
+    // Spreading fingers (d grows) zooms IN with the new ortho camera.
+    if (pinchStartDist > 0) {
+      camera.zoom(d / pinchStartDist);
+      if (onZoomChange) onZoomChange(camera.getZoom());
+    }
     pinchStartDist = d;
   }
 }

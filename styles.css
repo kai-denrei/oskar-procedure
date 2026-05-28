@@ -122,21 +122,61 @@ body {
 }
 
 /* ── 3D WebGL view ──────────────────────────────────────────────────────── */
-/* Override the .view 1fr 18rem grid: the GL canvas fills the whole view, just
-   like #view-grid's stage but with no side panel. .view already sets
-   `position: absolute; inset: 0`, which both fills #views AND establishes the
-   containing block for the absolutely-positioned #iso-hint — so we must NOT
-   reset position here (relative + no height would collapse the view). */
+/* Mirrors the Grid tab: a canvas stage (1fr) + a controls aside (18rem). The
+   #gl-stage is the relative containing block for the absolutely-positioned hint
+   (it inherits the .view 1fr 18rem grid). */
 #view-3d {
-  display: block;
+  /* inherits the 1fr 18rem grid from .view */
+}
+
+#gl-stage {
+  position: relative;
+  min-width: 0;
 }
 
 #gl-canvas {
   display: block;
   width: 100%;
   height: 100%;
-  touch-action: none; /* orbit/zoom own the gesture, no scroll/pinch-zoom */
+  touch-action: none; /* build/zoom own the gesture, no scroll/pinch-zoom */
 }
+
+/* 3D controls aside — same panel chrome as #controls. */
+#terrain-controls {
+  background: var(--bg-panel);
+  border-left: 1px solid var(--line);
+  padding: 1.5rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  overflow-y: auto;
+}
+
+#terrain-controls h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.4rem;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--ink);
+}
+
+#terrain-controls .sub {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-dim);
+}
+
+/* Secondary (Flatten) — outline instead of solid amber so it reads as a
+   destructive/secondary action next to the solid Randomize button. */
+.ctrl-secondary {
+  background: transparent;
+  color: var(--amber);
+  border: 1px solid var(--line);
+}
+.ctrl-secondary:hover { filter: none; color: var(--ink); }
 
 #iso-hint {
   position: absolute;
@@ -550,24 +590,27 @@ input[type="range"]::-moz-range-thumb {
     display: none;
   }
 
-  #view-grid {
+  #view-grid,
+  #view-3d {
     display: flex;
     flex-direction: column;
   }
 
-  #stage {
+  #stage,
+  #gl-stage {
     flex: 1 1 auto;
     min-height: 0; /* let the canvas size to the flex height, not its content */
   }
 
-  #controls {
+  #controls,
+  #terrain-controls {
     flex: 0 0 auto;
     max-height: 32vh;
     overflow-y: auto;
     border-left: none;
     border-top: 1px solid var(--line);
     padding: 0.55rem 0.9rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
-    /* single compact column (base #controls is already a flex column) — no
+    /* single compact column (base panel is already a flex column) — no
        horizontal grid means no overflow/clipping of the segmented labels. */
     gap: 0.4rem;
   }
@@ -575,6 +618,8 @@ input[type="range"]::-moz-range-thumb {
   /* reclaim vertical space: drop the decorative title + divider on mobile */
   #controls h1,
   #controls .sub,
+  #terrain-controls h1,
+  #terrain-controls .sub,
   .ctrl-divider {
     display: none;
   }
@@ -596,13 +641,9 @@ input[type="range"]::-moz-range-thumb {
      the seed readout (it's fixed bottom-right; inline styles -> !important). */
   [id^="cb-badge"] { bottom: calc(32vh + 10px) !important; }
 
-  /* 3D view on mobile: the iso canvas fills the whole screen (no side panel),
-     same as the grid stage. The cb-badge floats bottom-right; the hint sits
-     bottom-left so they don't collide. */
-  #view-3d {
-    display: block;
-  }
-
+  /* 3D view on mobile: canvas stage fills, the compact terrain panel stacks
+     below (handled by the #view-3d flex-column rules above). The cb-badge
+     floats bottom-right; the hint sits bottom-left so they don't collide. */
   #iso-hint {
     font-size: 0.58rem;
     bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));

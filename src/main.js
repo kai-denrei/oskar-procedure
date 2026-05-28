@@ -1,16 +1,18 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=2b44eac3';
-import { randomSeed } from './rng.js?v=2b44eac3';
-import { drawMesh, drawDualCells } from './render2d.js?v=2b44eac3';
-import { createControls, setSeedDisplay } from './controls.js?v=2b44eac3';
-import { buildHalfEdge } from './halfedge.js?v=2b44eac3';
-import { extractDualCells, hitTestVertex } from './dual.js?v=2b44eac3';
-import { createState } from './state.js?v=2b44eac3';
-import { initTabs } from './tabs.js?v=2b44eac3';
-import { createHeights } from './structures/heights.js?v=2b44eac3';
-import { initView3d, drawView3d, markView3dDirty } from './gl/view3d.js?v=2b44eac3';
+import { generateMesh, makeRelaxer } from './grid.js?v=1689f3b0';
+import { randomSeed } from './rng.js?v=1689f3b0';
+import { drawMesh, drawDualCells } from './render2d.js?v=1689f3b0';
+import { createControls, setSeedDisplay } from './controls.js?v=1689f3b0';
+import { buildHalfEdge } from './halfedge.js?v=1689f3b0';
+import { extractDualCells, hitTestVertex } from './dual.js?v=1689f3b0';
+import { createState } from './state.js?v=1689f3b0';
+import { initTabs } from './tabs.js?v=1689f3b0';
+import { createHeights } from './structures/heights.js?v=1689f3b0';
+import { generateTerrain } from './structures/terrain.js?v=1689f3b0';
+import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange } from './gl/view3d.js?v=1689f3b0';
+import { createTerrainControls } from './gl/terrain-controls.js?v=1689f3b0';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -94,9 +96,18 @@ let dualCells = null;
 let cornerState = null;
 
 // M3D-1: shared per-primary-vertex height field for the 3D build-by-stacking
-// view. Recreated whenever a mesh is (re)generated; seeded from paint on settle
-// (a painted dual cell ⇒ height ≥ 1, so it reads as a 1-floor block in 3D).
+// view. Recreated whenever a mesh is (re)generated. The 3D tab is a TERRAIN
+// PLAYGROUND: procedural terrain (generateTerrain) OWNS the height field — on
+// settle/regen the field is filled from the current terrain params, then the
+// user hand-edits it by drag-building. The Grid tab's paint still nudges the
+// same field (painting a cell raises it ≥1), so paint + terrain stay coherent
+// on one shared field; whichever acted last wins per cell.
 let heights = null;
+
+// Terrain params for the 3D playground. `seed` drives the procedural relief;
+// Randomize picks a new seed; Height/Roughness sliders regenerate at the same
+// seed. orientation + zoom drive the fixed-iso camera (not the height field).
+let terrainParams = { seed: randomSeed(), amplitude: 4, roughness: 4, orientation: 0, zoom: 1 };
 
 const CONVERGENCE_THRESHOLD = 1e-4; // stop early if displacement drops below this
 
@@ -128,24 +139,34 @@ function buildConnectivity() {
   cornerState = createState(currentMesh.vertices.length);
   heights = createHeights(currentMesh.vertices.length);
 
+  // The 3D tab is a terrain playground: fill the height field from procedural
+  // terrain at the current params. This is the source of relief; the user then
+  // hand-edits by drag-building in 3D.
+  applyTerrain();
+
   if (DEMO) {
-    // every 3rd interior cell -> filled, so the screenshot shows painted cells
+    // every 3rd interior cell -> filled, so the Grid screenshot shows painted cells
     for (let i = 0; i < dualCells.length; i += 3) {
       cornerState.set(dualCells[i].vertexIndex, true);
-    }
-    // Deterministic FLAT-topped blocks so 3D screenshots show buildings (not
-    // spikes): raise the 4 corners of every Nth quad together to a common height.
-    for (let i = 0; i < currentMesh.quads.length; i += 5) {
-      const h = i % 15 === 0 ? 3 : i % 10 === 0 ? 2 : 1;
-      for (const vi of currentMesh.quads[i]) {
-        heights.set(vi, Math.max(heights.get(vi), h));
-      }
     }
   }
 
   // Seed heights from paint: a painted dual cell shows as at least a 1-floor
-  // block in 3D. Preserve any larger value already set (e.g. the demo stepping).
+  // block in 3D. Preserve any larger value already set (e.g. the terrain).
   seedHeightsFromPaint();
+  markView3dDirty();
+}
+
+// Fill the shared height field from procedural terrain at the current params.
+// Replaces the field's contents (terrain owns it). No-op if no mesh/heights yet.
+function applyTerrain() {
+  if (!heights || !currentMesh || !currentMesh.vertices) return;
+  const hs = generateTerrain(currentMesh, {
+    seed: terrainParams.seed,
+    amplitude: terrainParams.amplitude,
+    roughness: terrainParams.roughness,
+  });
+  for (let i = 0; i < hs.length; i++) heights.set(i, hs[i]);
   markView3dDirty();
 }
 
@@ -325,9 +346,55 @@ canvas.addEventListener('pointerleave', endPaint);
 initTabs();
 
 // --- 3D WebGL view ------------------------------------------------------
-// Owns the #gl-canvas + orbit camera + click-to-raise. The mesh + heights are
-// shared (never regenerated on tab switch); the RAF loop above feeds them in.
+// Owns the #gl-canvas + fixed-iso ortho camera + drag-to-build. The mesh +
+// heights are shared (never regenerated on tab switch); the RAF loop feeds them.
 initView3d();
+
+// Apply the initial camera zoom/orientation (the camera frames the mesh on its
+// first real geometry; these set the playground defaults on top of that).
+const _cam = getCamera();
+if (_cam) {
+  _cam.setZoom(terrainParams.zoom);
+  _cam.setOrientation(terrainParams.orientation);
+}
+
+// --- 3D terrain controls panel ------------------------------------------
+const terrainUI = createTerrainControls(
+  {
+    // Zoom/orientation drive the camera; Height/Roughness regenerate terrain.
+    onChange: (p) => {
+      terrainParams = { ...terrainParams, ...p };
+      const cam = getCamera();
+      if (cam) {
+        cam.setZoom(terrainParams.zoom);
+        cam.setOrientation(terrainParams.orientation);
+      }
+      applyTerrain(); // regenerate relief at the current seed/amplitude/roughness
+    },
+    onRandomize: () => {
+      terrainParams.seed = randomSeed();
+      applyTerrain();
+    },
+    onFlatten: () => {
+      if (heights) {
+        heights.clear();
+        markView3dDirty();
+      }
+    },
+  },
+  {
+    zoom: terrainParams.zoom,
+    orientation: terrainParams.orientation,
+    amplitude: terrainParams.amplitude,
+    roughness: terrainParams.roughness,
+  }
+);
+
+// Wheel zoom in the 3D view → reflect the new zoom level into the panel slider.
+setOnZoomChange((z) => {
+  terrainParams.zoom = z;
+  terrainUI.setZoom(z);
+});
 
 // --- boot ---------------------------------------------------------------
 resize();
