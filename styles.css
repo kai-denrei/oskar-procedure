@@ -193,6 +193,103 @@ body {
   opacity: 0.7;
 }
 
+/* ── Map view (Catan-style hexagon board) ───────────────────────────────── */
+/* Mirrors the 3D tab: a canvas stage (1fr) + a controls aside (18rem). */
+#view-map {
+  /* inherits the 1fr 18rem grid from .view */
+}
+
+#map-stage {
+  position: relative;
+  min-width: 0;
+}
+
+#map-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* pan/zoom own the gesture, no scroll/pinch-zoom */
+}
+
+/* Map controls aside — same panel chrome as #controls / #terrain-controls. */
+#map-controls {
+  background: var(--bg-panel);
+  border-left: 1px solid var(--line);
+  padding: 1.5rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  overflow-y: auto;
+}
+
+#map-controls h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.4rem;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--ink);
+}
+
+#map-controls .sub {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-dim);
+}
+
+#map-hint {
+  position: absolute;
+  left: 0.9rem;
+  bottom: 0.9rem;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.7;
+}
+
+/* Right-click biome picker — a small floating DOM menu at the cursor. */
+#map-biome-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 8rem;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.25rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+#map-biome-menu[hidden] { display: none; }
+
+.map-menu-item {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.map-menu-item:hover { background: var(--line); }
+
+.map-menu-active {
+  color: var(--amber);
+  font-weight: 600;
+}
+
 /* ── About view ──────────────────────────────────────────────────────────── */
 #view-about {
   display: block; /* single-column scroll; override .view grid when visible */
@@ -604,19 +701,22 @@ input[type="range"]::-moz-range-thumb {
   }
 
   #view-grid,
-  #view-3d {
+  #view-3d,
+  #view-map {
     display: flex;
     flex-direction: column;
   }
 
   #stage,
-  #gl-stage {
+  #gl-stage,
+  #map-stage {
     flex: 1 1 auto;
     min-height: 0; /* let the canvas size to the flex height, not its content */
   }
 
   #controls,
-  #terrain-controls {
+  #terrain-controls,
+  #map-controls {
     flex: 0 0 auto;
     max-height: 32vh;
     overflow-y: auto;
@@ -633,6 +733,8 @@ input[type="range"]::-moz-range-thumb {
   #controls .sub,
   #terrain-controls h1,
   #terrain-controls .sub,
+  #map-controls h1,
+  #map-controls .sub,
   .ctrl-divider {
     display: none;
   }
@@ -657,7 +759,8 @@ input[type="range"]::-moz-range-thumb {
   /* 3D view on mobile: canvas stage fills, the compact terrain panel stacks
      below (handled by the #view-3d flex-column rules above). The cb-badge
      floats bottom-right; the hint sits bottom-left so they don't collide. */
-  #iso-hint {
+  #iso-hint,
+  #map-hint {
     font-size: 0.58rem;
     bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
   }

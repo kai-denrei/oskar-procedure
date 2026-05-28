@@ -7,12 +7,13 @@
 const HASH_TO_VIEW = {
   '#grid': 'view-grid',
   '#3d': 'view-3d',
+  '#map': 'view-map',
   '#about': 'view-about',
 };
 
 // Views whose content is a <canvas> that sizes to 0 while hidden — switching TO
 // them must dispatch a resize so the newly-shown canvas re-fits itself.
-const CANVAS_VIEWS = new Set(['view-grid', 'view-3d']);
+const CANVAS_VIEWS = new Set(['view-grid', 'view-3d', 'view-map']);
 
 export function initTabs() {
   const tabButtons = document.querySelectorAll('[role="tab"]');
