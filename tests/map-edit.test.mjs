@@ -111,6 +111,22 @@ test('objects ride terrain: an object z follows its cell top after sculpt', () =
   assert.equal(edit.objects[0].z, 1 * FLOOR_H, 'tree z lifted to cell top');
 });
 
+// Frame contract: focus geometry is ORIGIN-centered (the patch mesh is at origin
+// and buildFocusGeometry does NOT translate it to tile.center). Focus-mode pointer
+// picking (map-view focusGroundCell) relies on this — it uses the unprojected point
+// directly, with NO tile.center subtraction. If a future change translates focus
+// geometry to tile.center, this test fails AND focusGroundCell must change too.
+// (Regression guard for the "edits no-op on non-center tiles" bug, 2026-05-28.)
+test('buildFocusGeometry is origin-centered regardless of tile.center (pick frame)', () => {
+  const tile = { biomeId: 'meadows', seed: 7, center: [0.9, 0.52], edit: null };
+  const m = patch(tile.seed);
+  bakeIfNeeded(tile, m);
+  const g = buildFocusGeometry(tile, m);
+  assert.ok(g.bounds.min[0] < 0 && g.bounds.max[0] > 0, `x straddles origin: ${g.bounds.min[0]}..${g.bounds.max[0]}`);
+  assert.ok(g.bounds.min[1] < 0 && g.bounds.max[1] > 0, `y straddles origin: ${g.bounds.min[1]}..${g.bounds.max[1]}`);
+  assert.ok(g.bounds.max[0] < tile.center[0], 'NOT translated to tile.center');
+});
+
 // Task 14: placeObject
 test('placeObject appends a record at the picked cell with z = cell top', () => {
   const tile = { biomeId: 'meadows', seed: 7, edit: { heights: [0,0,0,0,0,0], objects: [], epoch: 1 } };

@@ -522,15 +522,31 @@ export function demoShowcaseEdit() {
   return true;
 }
 
+// DEMO/test hook: drive a sculpt through the REAL pointer pick path
+// (focusGroundCell → cellAt) at client pixel coords, to verify focus-mode
+// picking end-to-end on ANY tile. Returns the picked cell (-1 = missed).
+export function clickEditForTest(clientX, clientY) {
+  if (!focusedTile || !liveMap) return -1;
+  const { cell, mesh } = focusGroundCell({ clientX, clientY });
+  if (cell < 0) return -1;
+  const biome = getBiome(focusedTile.biomeId);
+  for (let i = 0; i < 4; i++) editSculpt(focusedTile, cell, +1, biome.maxHeight, mesh);
+  rebuildFocus();
+  return cell;
+}
+
 let lastSculptCell = -1; // avoid re-editing the same cell while dragging
 function focusGroundCell(ev) {
   const gp = unprojectToGround(ev.clientX, ev.clientY);
   if (!gp || !focusedTile) return { gp: null, cell: -1, mesh: null };
   const mesh = tileMesh(focusedTile, liveMap);
-  // focus geometry is centered at the tile's own origin → subtract tile.center
-  const lx = gp[0] - focusedTile.center[0];
-  const ly = gp[1] - focusedTile.center[1];
-  return { gp: [lx, ly], cell: cellAt(mesh, lx, ly), mesh };
+  // In focus mode the geometry AND the camera are origin-centered: buildFocusGeometry
+  // does NOT translate the (origin-centered) patch mesh to tile.center, and enterFocus
+  // reframes the camera to those origin bounds. So the unprojected ground point is
+  // already in the mesh's frame — use it directly. (Subtracting tile.center here was
+  // the bug: it only no-op'd for the center tile (0,0) and shifted the pick off the
+  // patch for every other tile → cellAt returned -1 → edits silently did nothing.)
+  return { gp, cell: cellAt(mesh, gp[0], gp[1]), mesh };
 }
 
 function focusSculptAt(ev) {
