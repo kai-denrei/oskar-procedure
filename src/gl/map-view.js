@@ -29,7 +29,7 @@ import { getBiome, BIOMES } from '../structures/biomes.js?v=02391cf2';
 import { createHeights } from '../structures/heights.js?v=02391cf2';
 import { generateDecorations } from '../structures/decorations.js?v=02391cf2';
 import { buildSceneGeometry } from '../structures/geometry.js?v=02391cf2';
-import { bakeIfNeeded, buildFocusGeometry, cellAt, sculpt as editSculpt } from './map-edit.js?v=02391cf2';
+import { bakeIfNeeded, buildFocusGeometry, cellAt, cellInradius, sculpt as editSculpt, placeObject as editPlace, eraseAt as editErase, ERASE_RADIUS_FACTOR } from './map-edit.js?v=02391cf2';
 
 const FLOOR_H = 0.06; // world-units per floor (matches view3d / relax SIDE_LENGTH)
 // Sea plane sits just under the tiles' base slab so the land reads as islands
@@ -395,6 +395,14 @@ function showMenu(tile, clientX, clientY) {
 
 function onContextMenu(ev) {
   ev.preventDefault();
+  if (focusedTile) {
+    // In focus mode: right-click erases the nearest object under the cursor.
+    const { gp, cell, mesh } = focusGroundCell(ev);
+    if (!gp || cell < 0) return;
+    const radius = cellInradius(mesh, cell) * ERASE_RADIUS_FACTOR;
+    if (editErase(focusedTile, mesh, gp, radius)) rebuildFocus();
+    return;
+  }
   const gp = unprojectToGround(ev.clientX, ev.clientY);
   const tile = pickTileAt(gp);
   if (!tile) { hideMenu(); return; }
@@ -470,6 +478,30 @@ function onPointerUpPinch(ev) {
 let tool = { mode: 'sculpt', dir: +1, objectId: null };
 export function setMapTool(t) { tool = { ...tool, ...t }; }
 
+// DEMO/test hook: apply an edit to the focused tile by op name, then rebuild.
+//   op 'sculpt'  payload { cellIdx, dir }
+//   op 'place'   payload { type, point:[lx,ly] }
+//   op 'erase'   payload { point:[lx,ly] }
+export function applyFocusEdit(op, payload = {}) {
+  if (!focusedTile || !liveMap) return false;
+  const mesh = tileMesh(focusedTile, liveMap);
+  const biome = getBiome(focusedTile.biomeId);
+  let ok = false;
+  if (op === 'sculpt') {
+    editSculpt(focusedTile, payload.cellIdx, payload.dir, biome.maxHeight, mesh);
+    ok = true;
+  } else if (op === 'place') {
+    ok = editPlace(focusedTile, payload.type, mesh, payload.point);
+  } else if (op === 'erase') {
+    const ci = cellAt(mesh, payload.point[0], payload.point[1]);
+    if (ci >= 0) {
+      ok = editErase(focusedTile, mesh, payload.point, cellInradius(mesh, ci) * ERASE_RADIUS_FACTOR);
+    }
+  }
+  if (ok) rebuildFocus();
+  return ok;
+}
+
 let lastSculptCell = -1; // avoid re-editing the same cell while dragging
 function focusGroundCell(ev) {
   const gp = unprojectToGround(ev.clientX, ev.clientY);
@@ -482,13 +514,19 @@ function focusGroundCell(ev) {
 }
 
 function focusSculptAt(ev) {
-  if (tool.mode !== 'sculpt') return;            // Place handled on click (Phase 2)
+  if (tool.mode !== 'sculpt') return;            // Place handled on click
   const { cell, mesh } = focusGroundCell(ev);
   if (cell < 0 || cell === lastSculptCell) return;
   lastSculptCell = cell;
   const biome = getBiome(focusedTile.biomeId);
   editSculpt(focusedTile, cell, tool.dir, biome.maxHeight, mesh);
   rebuildFocus();
+}
+
+function focusPlaceAt(ev) {
+  const { gp, cell, mesh } = focusGroundCell(ev);
+  if (!gp || cell < 0) return;
+  if (editPlace(focusedTile, tool.objectId, mesh, gp)) rebuildFocus();
 }
 
 // Single-finger drag → pan the board (no build interaction on the Map tab).
@@ -505,11 +543,14 @@ function onPointerDown(ev) {
   pressStart = [ev.clientX, ev.clientY];
   movedFar = false;
   canvas.setPointerCapture?.(ev.pointerId);
-  // In focus mode a press may begin a sculpt stroke (Task: tool state in main).
+  // In focus mode a press begins a place or sculpt stroke depending on the tool.
   // NOTE (Phase 1): sculpt-on-press fires for the first finger of a touch pinch
   // too (one stray cell edit before the 2nd finger cancels the drag). Harmless on
   // desktop/mouse; reversible via Lower. Revisit for touch in a later pass.
-  if (focusedTile) focusSculptAt(ev);
+  if (focusedTile) {
+    if (tool.mode === 'place' && tool.objectId) focusPlaceAt(ev);
+    else focusSculptAt(ev);
+  }
 }
 function onPointerMove(ev) {
   if (!dragging || !lastDrag) return;
