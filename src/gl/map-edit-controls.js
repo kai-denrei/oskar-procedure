@@ -8,7 +8,7 @@
 //     onExit()                          "← Board" clicked
 //     reset()                           restores Raise + Sculpt selection (no onTool fired)
 
-import { OBJECTS } from '../structures/objects.js';
+import { OBJECTS } from '../structures/objects.js?v=a0f69c78';
 
 export function createMapEditControls(handlers = {}) {
   const aside = document.getElementById('map-edit-controls');
