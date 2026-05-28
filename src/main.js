@@ -15,7 +15,7 @@ import { generateDecorations } from './structures/decorations.js?v=02391cf2';
 import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=02391cf2';
 import { createTerrainControls } from './gl/terrain-controls.js?v=02391cf2';
 import { createHexMap } from './structures/hexmap.js?v=02391cf2';
-import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused, enterFocus } from './gl/map-view.js?v=02391cf2';
+import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused, enterFocus, applyFocusEdit } from './gl/map-view.js?v=02391cf2';
 import { createMapControls } from './gl/map-controls.js?v=02391cf2';
 import { createMapEditControls } from './gl/map-edit-controls.js?v=02391cf2';
 
@@ -585,8 +585,11 @@ setMapOnCameraChange(() => {});
 setMapOnRetype((tile, biomeId) => {
   if (!hexMap || !tile) return;
   hexMap.setBiome(tile, biomeId);
-  // Only this tile's cache entry is now stale (its key changed) → a full board
-  // rebuild re-pulls cached geometry for unchanged tiles and rebuilds this one.
+  // An EDITED tile keeps its sculpt + objects; only the biome (→ colorize +
+  // height cap) changes. An UNEDITED tile regenerates from the new biome (its
+  // cache key has epoch 0, so the next board build re-generates it).
+  // buildTileGeometry already renders from tile.edit when present, so no
+  // extra logic is needed here to preserve edits on retype.
   markMapDirty();
 });
 
@@ -652,6 +655,10 @@ if (DEMO && typeof window !== 'undefined') {
       window.__mapFocus(parseInt(qs, 10), parseInt(rs, 10));
     }));
   }
+
+  // window.__mapEdit(op, payload) — drive an edit on the focused tile from the
+  // console or a headless test script (e.g. place a tree, sculpt a cell, erase).
+  window.__mapEdit = (op, payload) => applyFocusEdit(op, payload);
 }
 
 // --- boot ---------------------------------------------------------------
