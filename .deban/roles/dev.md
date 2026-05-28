@@ -27,6 +27,7 @@ state, render2d, controls. Owns the Node test harness for pure-logic invariants.
 ## Lessons
 - A closed-form geometric optimizer carries an implicit corner/winding convention; transcribing the formula without matching the winding silently inverts the objective (diverge instead of converge). Always assert the optimizer *reduces* its error metric, not just that it runs. — from dead end on 2026-05-27
 - A bounded procedural patch has two vertex classes: **interior** (relax freely) and **boundary** (defines the shape — pin it). Relaxing the boundary destroys the intended outline; pinning it is also what lets independent patches stitch seamlessly. — from dead end on 2026-05-28
+- The `[hidden]` attribute hides only if no higher-specificity rule sets `display`. A mobile media query's `#id { display: flex }` (ID specificity) silently beat `.view[hidden] { display:none }`, so a "hidden" tab view bled over the active one — but only on mobile. Give the hide rule `!important` (the one place it's justified: hidden must always win), and verify EVERY view-state × breakpoint, not just the default tab. — from a tab-overlap bug on 2026-05-28
 
 ## Open Questions
 - [x] RESOLVED 2026-05-27: relaxation closed-form needs CW corner order; implementation feeds a CW view and remaps forces to CCW indices. See Dead Ends + [[qa]].

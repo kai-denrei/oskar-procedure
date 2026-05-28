@@ -90,7 +90,10 @@ body {
 }
 
 .view[hidden] {
-  display: none;
+  /* !important so the hidden view truly hides — otherwise the mobile media
+     query's `#view-grid { display: … }` (ID specificity) beats this and the
+     grid view bleeds over the about view. The hidden attribute must always win. */
+  display: none !important;
 }
 
 /* ── Grid view internals ─────────────────────────────────────────────────── */
