@@ -1,14 +1,15 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=2dea7ab6';
-import { randomSeed } from './rng.js?v=2dea7ab6';
-import { drawMesh, drawDualCells } from './render2d.js?v=2dea7ab6';
-import { createControls, setSeedDisplay } from './controls.js?v=2dea7ab6';
-import { buildHalfEdge } from './halfedge.js?v=2dea7ab6';
-import { extractDualCells, hitTestVertex } from './dual.js?v=2dea7ab6';
-import { createState } from './state.js?v=2dea7ab6';
-import { initTabs } from './tabs.js?v=2dea7ab6';
+import { generateMesh, makeRelaxer } from './grid.js?v=6471296b';
+import { randomSeed } from './rng.js?v=6471296b';
+import { drawMesh, drawDualCells } from './render2d.js?v=6471296b';
+import { createControls, setSeedDisplay } from './controls.js?v=6471296b';
+import { buildHalfEdge } from './halfedge.js?v=6471296b';
+import { extractDualCells, hitTestVertex } from './dual.js?v=6471296b';
+import { createState } from './state.js?v=6471296b';
+import { initTabs } from './tabs.js?v=6471296b';
+import { initIsoView, drawIsoView } from './iso-view.js?v=6471296b';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -131,26 +132,41 @@ function buildConnectivity() {
 // --- render loop --------------------------------------------------------
 let rafId = null;
 
+// Is the 3D tab the active/visible view? (#view-3d loses its `hidden` attr when
+// selected — see tabs.js.) Cheap DOM read; the mesh itself is never regenerated
+// on tab switch, so both tabs reflect the one shared currentMesh + paint state.
+const view3d = document.getElementById('view-3d');
+function is3dActive() {
+  return view3d && !view3d.hasAttribute('hidden');
+}
+
 function render() {
-  ctx.clearRect(0, 0, cssW, cssH);
-  ctx.fillStyle = '#14130f';
-  ctx.fillRect(0, 0, cssW, cssH);
-
-  if (currentMesh) {
-    // advance relaxation one step per frame
-    if (!settled) {
-      const disp = relaxer.step();
-      frameCount++;
-      if (frameCount >= maxFrames || disp < CONVERGENCE_THRESHOLD) {
-        settled = true;
-        buildConnectivity(); // half-edge + dual cells + fresh state
-      }
+  // Advance relaxation one step per frame regardless of which tab is showing,
+  // so the shared mesh settles + builds connectivity even while viewed in 3D.
+  if (currentMesh && !settled) {
+    const disp = relaxer.step();
+    frameCount++;
+    if (frameCount >= maxFrames || disp < CONVERGENCE_THRESHOLD) {
+      settled = true;
+      buildConnectivity(); // half-edge + dual cells + fresh state
     }
+  }
 
-    const view = fitView();
-    // Painted dual-cell fills first, then thin grid lines on top so structure stays visible.
-    if (settled && dualCells) drawDualCells(ctx, dualCells, cornerState, view);
-    drawMesh(ctx, currentMesh, view);
+  if (is3dActive()) {
+    // 3D tab: render the shared mesh as an isometric floor; skip the flat grid.
+    drawIsoView({ mesh: currentMesh, cornerState, dualCells });
+  } else {
+    // Grid tab (default): flat 2D draw, exactly as before.
+    ctx.clearRect(0, 0, cssW, cssH);
+    ctx.fillStyle = '#14130f';
+    ctx.fillRect(0, 0, cssW, cssH);
+
+    if (currentMesh) {
+      const view = fitView();
+      // Painted dual-cell fills first, then thin grid lines on top so structure stays visible.
+      if (settled && dualCells) drawDualCells(ctx, dualCells, cornerState, view);
+      drawMesh(ctx, currentMesh, view);
+    }
   }
 
   rafId = requestAnimationFrame(render);
@@ -267,6 +283,11 @@ canvas.addEventListener('pointerleave', endPaint);
 
 // --- tabs ---------------------------------------------------------------
 initTabs();
+
+// --- 3D iso view --------------------------------------------------------
+// Owns the #iso-grid canvas + camera + drag-to-rotate. The mesh is shared
+// (never regenerated on tab switch); the RAF loop above feeds it currentMesh.
+initIsoView();
 
 // --- boot ---------------------------------------------------------------
 resize();

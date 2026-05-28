@@ -121,6 +121,38 @@ body {
   gap: 0.85rem;
 }
 
+/* ── 3D isometric floor view ─────────────────────────────────────────────── */
+/* Override the .view 1fr 18rem grid: the iso canvas fills the whole view, just
+   like #view-grid's stage but with no side panel. .view already sets
+   `position: absolute; inset: 0`, which both fills #views AND establishes the
+   containing block for the absolutely-positioned #iso-hint — so we must NOT
+   reset position here (relative + no height would collapse the view). */
+#view-3d {
+  display: block;
+}
+
+#iso-grid {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* drag-to-rotate owns the gesture, no scroll/zoom */
+}
+
+#iso-hint {
+  position: absolute;
+  left: 0.9rem;
+  bottom: 0.9rem;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.7;
+}
+
 /* ── About view ──────────────────────────────────────────────────────────── */
 #view-about {
   display: block; /* single-column scroll; override .view grid when visible */
@@ -563,6 +595,18 @@ input[type="range"]::-moz-range-thumb {
   /* float the cache-bust badge above the controls strip so it doesn't cover
      the seed readout (it's fixed bottom-right; inline styles -> !important). */
   [id^="cb-badge"] { bottom: calc(32vh + 10px) !important; }
+
+  /* 3D view on mobile: the iso canvas fills the whole screen (no side panel),
+     same as the grid stage. The cb-badge floats bottom-right; the hint sits
+     bottom-left so they don't collide. */
+  #view-3d {
+    display: block;
+  }
+
+  #iso-hint {
+    font-size: 0.58rem;
+    bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  }
 
   /* About view on mobile: full width, comfortable padding */
   .about-article {
