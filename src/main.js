@@ -1,19 +1,22 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=013d47e9';
-import { randomSeed } from './rng.js?v=013d47e9';
-import { drawMesh, drawDualCells } from './render2d.js?v=013d47e9';
-import { createControls, setSeedDisplay } from './controls.js?v=013d47e9';
-import { buildHalfEdge } from './halfedge.js?v=013d47e9';
-import { extractDualCells, hitTestVertex } from './dual.js?v=013d47e9';
-import { createState } from './state.js?v=013d47e9';
-import { initTabs } from './tabs.js?v=013d47e9';
-import { createHeights } from './structures/heights.js?v=013d47e9';
-import { BIOMES, getBiome } from './structures/biomes.js?v=013d47e9';
-import { generateDecorations } from './structures/decorations.js?v=013d47e9';
-import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=013d47e9';
-import { createTerrainControls } from './gl/terrain-controls.js?v=013d47e9';
+import { generateMesh, makeRelaxer } from './grid.js?v=d5410cfc';
+import { randomSeed } from './rng.js?v=d5410cfc';
+import { drawMesh, drawDualCells } from './render2d.js?v=d5410cfc';
+import { createControls, setSeedDisplay } from './controls.js?v=d5410cfc';
+import { buildHalfEdge } from './halfedge.js?v=d5410cfc';
+import { extractDualCells, hitTestVertex } from './dual.js?v=d5410cfc';
+import { createState } from './state.js?v=d5410cfc';
+import { initTabs } from './tabs.js?v=d5410cfc';
+import { createHeights } from './structures/heights.js?v=d5410cfc';
+import { BIOMES, getBiome } from './structures/biomes.js?v=d5410cfc';
+import { generateDecorations } from './structures/decorations.js?v=d5410cfc';
+import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=d5410cfc';
+import { createTerrainControls } from './gl/terrain-controls.js?v=d5410cfc';
+import { createHexMap } from './structures/hexmap.js?v=d5410cfc';
+import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty } from './gl/map-view.js?v=d5410cfc';
+import { createMapControls } from './gl/map-controls.js?v=d5410cfc';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -119,6 +122,15 @@ let terrainParams = { biome: 'dunes', seed: randomSeed(), amplitude: 3, roughnes
 // rebuild path stays the single source of truth.
 let decorations = [];
 
+// --- Map tab state ------------------------------------------------------
+// The Catan-style hexagon board model. Owned here; map-view consumes it via
+// drawMapView({ map }). Radius/seed drive the board; right-click retypes a tile.
+let mapParams = { radius: 2, seed: randomSeed(), orientation: 0, zoom: 1 };
+let hexMap = null;
+function buildHexMap() {
+  hexMap = createHexMap({ radius: mapParams.radius, seed: mapParams.seed });
+}
+
 const CONVERGENCE_THRESHOLD = 1e-4; // stop early if displacement drops below this
 
 // Demo paint: gated behind ?demo=1 (OFF by default — shipped default starts with
@@ -160,6 +172,14 @@ function urlAmplitude() {
   if (typeof location === 'undefined') return null;
   const a = Math.round(Number(new URLSearchParams(location.search).get('amp')));
   return Number.isFinite(a) && a >= 1 && a <= 8 ? a : null;
+}
+
+// ?radius=<1..3> boots the Map tab at a given board radius (7/19/37 tiles) so
+// headless screenshots can target each size deterministically. Default 2.
+function urlRadius() {
+  if (typeof location === 'undefined') return null;
+  const r = Math.round(Number(new URLSearchParams(location.search).get('radius')));
+  return Number.isFinite(r) && r >= 1 && r <= 3 ? r : null;
 }
 
 // Build half-edge + dual cells + a fresh corner state from the settled mesh.
@@ -244,6 +264,10 @@ const view3d = document.getElementById('view-3d');
 function is3dActive() {
   return view3d && !view3d.hasAttribute('hidden');
 }
+const viewMap = document.getElementById('view-map');
+function isMapActive() {
+  return viewMap && !viewMap.hasAttribute('hidden');
+}
 
 function render() {
   // Advance relaxation one step per frame regardless of which tab is showing,
@@ -257,7 +281,10 @@ function render() {
     }
   }
 
-  if (is3dActive()) {
+  if (isMapActive()) {
+    // Map tab: render the Catan board (merged per-tile geometry + water).
+    drawMapView({ map: hexMap });
+  } else if (is3dActive()) {
     // 3D tab: render the shared mesh + heights as a true-3D WebGL scene
     // (floor + extruded columns). Skip the flat 2D grid this frame.
     drawView3d({
@@ -495,6 +522,97 @@ setOnZoomChange((z) => {
   terrainParams.zoom = z;
   terrainUI.setZoom(z);
 });
+
+// --- Map tab: board model + WebGL view + controls -----------------------
+// Boot radius from ?radius= (deterministic screenshots), else default 2.
+const bootRadius = urlRadius();
+if (bootRadius != null) mapParams.radius = bootRadius;
+buildHexMap();
+
+initMapView();
+
+const _mapCam = getMapCamera();
+if (_mapCam) {
+  _mapCam.setZoom(mapParams.zoom);
+  _mapCam.setOrientation(mapParams.orientation);
+}
+
+const mapUI = createMapControls(
+  {
+    onChange: (p) => {
+      const radiusChanged = p.radius !== mapParams.radius;
+      const orientationChanged = p.orientation !== mapParams.orientation;
+      mapParams = { ...mapParams, ...p };
+      const cam = getMapCamera();
+      if (cam) {
+        cam.setZoom(mapParams.zoom);
+        cam.setOrientation(mapParams.orientation);
+      }
+      if (radiusChanged) {
+        // New radius → rebuild the board model + drop the per-tile cache, reframe.
+        buildHexMap();
+        clearMapCache();
+        requestMapReframe();
+      } else if (orientationChanged) {
+        requestMapReframe();
+      }
+    },
+    onRandomize: () => {
+      // Fresh map seed → new biome spread + new per-tile grids; rebuild + reframe.
+      mapParams.seed = randomSeed();
+      buildHexMap();
+      clearMapCache();
+      requestMapReframe();
+    },
+  },
+  {
+    radius: mapParams.radius,
+    zoom: mapParams.zoom,
+    orientation: mapParams.orientation,
+  }
+);
+
+// Wheel zoom in the Map view → reflect the new zoom into the panel slider.
+setMapOnZoomChange((z) => {
+  mapParams.zoom = z;
+  mapUI.setZoom(z);
+});
+setMapOnCameraChange(() => {});
+
+// Right-click retype: keep the tile's grid (just swap biome → re-terrain +
+// recolor on the next rebuild), rebuild only that tile's cached geometry.
+setMapOnRetype((tile, biomeId) => {
+  if (!hexMap || !tile) return;
+  hexMap.setBiome(tile, biomeId);
+  // Only this tile's cache entry is now stale (its key changed) → a full board
+  // rebuild re-pulls cached geometry for unchanged tiles and rebuilds this one.
+  markMapDirty();
+});
+
+// DEMO-only test hook (?demo=1): a window function + a ?retype=q,r,biome URL
+// param both drive a tile retype WITHOUT synthesizing a contextmenu event
+// (unreliable under SwiftShader GL). Exercises the same setBiome + rebuild path
+// the right-click menu uses. Inert in the shipped (non-demo) build.
+if (DEMO && typeof window !== 'undefined') {
+  window.__retypeTile = (q, r, biomeId) => {
+    if (!hexMap) return null;
+    const tile = hexMap.getTile(q, r);
+    if (!tile) return null;
+    hexMap.setBiome(tile, biomeId);
+    markMapDirty();
+    return tile.biomeId;
+  };
+  // ?retype=q,r,biome — apply once on boot so a headless screenshot can show the
+  // retyped tile (verifies the pick→setBiome→rebuild path end to end).
+  const rt = new URLSearchParams(location.search).get('retype');
+  if (rt) {
+    const [qs, rs, bid] = rt.split(',');
+    const q = parseInt(qs, 10), r = parseInt(rs, 10);
+    if (Number.isFinite(q) && Number.isFinite(r) && bid) {
+      window.__retypeTile(q, r, bid);
+    }
+  }
+}
 
 // --- boot ---------------------------------------------------------------
 resize();
