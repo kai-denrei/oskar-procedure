@@ -39,7 +39,7 @@ and challenges the brief. Coordinates worker sub-agents and verifies gates befor
 - [assumption] Operator wants the full V1 (M0+M1+M2) built autonomously this session, no mid-build checkpoint. — status: validated — since: 2026-05-27 (explicit: "until /goal of a working V1 ... is finished")
 
 ## Open Questions (cont.)
-- [ ] **Per-vertex height reads as spikes.** M3D-1's click-to-raise raises a primary VERTEX, which tents the 4 quads sharing it → cones, not flat-topped blocks (Townscaper raises per *cell*). Operator chose per-vertex (corner-state-consistent, trilinear-ready), but seeing it, confirm the feel before M3D-2 builds tiles on this model. Options: keep per-vertex (M3D-2 tiles reshape the columns into real roofs/walls anyway); raise all 4 corners of the clicked cell together (flat tops, still corner-state); or per-cell height. — owner: minikai — since: 2026-05-28
+- [x] RESOLVED 2026-05-28: spiky-tops fixed. Click now picks the **quad under the cursor** (point-in-poly) and sets its 4 corners to a common height (one above the cell's tallest corner) → **flat-topped blocks**; neighbours terrace at shared corners. Per-vertex storage retained (corner-state intact for M3D-2). Demo raises per-quad too.
 
 ## Dependencies
 Blocked by:

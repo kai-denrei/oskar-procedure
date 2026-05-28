@@ -8,11 +8,10 @@
 //   resizeView3d()                            re-measure on tab switch / resize
 //   markView3dDirty()                         force a geometry rebuild next draw
 
-import { createRenderer } from './renderer.js?v=dfbbef36';
-import { createCamera } from './camera.js?v=dfbbef36';
-import { multiply, invert, transformPoint } from './mat4.js?v=dfbbef36';
-import { buildSceneGeometry } from '../structures/geometry.js?v=dfbbef36';
-import { hitTestVertex } from '../dual.js?v=dfbbef36';
+import { createRenderer } from './renderer.js?v=2b44eac3';
+import { createCamera } from './camera.js?v=2b44eac3';
+import { multiply, invert, transformPoint } from './mat4.js?v=2b44eac3';
+import { buildSceneGeometry } from '../structures/geometry.js?v=2b44eac3';
 
 const FLOOR_H = 0.06; // world-units per floor (matches relax SIDE_LENGTH)
 const DRAG_THRESHOLD = 5; // px of pointer movement that turns a click into a drag
@@ -100,8 +99,8 @@ export function resizeView3d() {
 // Build a world ray from the click's NDC, intersect z=0, hit-test the dual
 // cells, and raise/lower the picked vertex's height.
 function pickAndEdit(ev) {
-  const { mesh, heights, dualCells } = liveState;
-  if (!heights || !dualCells || !dualCells.length) return;
+  const { mesh, heights } = liveState;
+  if (!heights || !mesh || !mesh.quads || !mesh.quads.length) return;
 
   const rect = canvas.getBoundingClientRect();
   // NDC in [-1,1]; y flipped (screen y grows downward).
@@ -125,13 +124,40 @@ function pickAndEdit(ev) {
   const wx = nearW[0] + t * (farW[0] - nearW[0]);
   const wy = nearW[1] + t * (farW[1] - nearW[1]);
 
-  const vi = hitTestVertex([wx, wy], dualCells);
-  if (vi < 0) return;
-
-  // Shift or right-click lowers; plain click raises.
-  if (downShift || downButton === 2) heights.lower(vi);
-  else heights.raise(vi);
+  // Pick the QUAD (cell) under the click and set its 4 corners to a common
+  // height, so a click builds a FLAT-topped block (one floor above the cell's
+  // current tallest corner); neighbours naturally terrace at shared corners.
+  const quad = pickQuad([wx, wy], mesh);
+  if (!quad) return;
+  const cur = Math.max(0, ...quad.map((vi) => heights.get(vi)));
+  const lower = downShift || downButton === 2;
+  const target = lower ? Math.max(0, cur - 1) : cur + 1;
+  for (const vi of quad) heights.set(vi, target);
   markView3dDirty();
+}
+
+// Which quad (face) contains the world ground point p=[x,y]? Even-odd
+// point-in-polygon over each quad's 4 (x,y) vertices. Returns the quad's
+// vertex-index array, or null if the click missed the mesh.
+function pickQuad(p, mesh) {
+  for (const q of mesh.quads) {
+    if (pointInPoly(p, q, mesh.vertices)) return q;
+  }
+  return null;
+}
+function pointInPoly(p, idx, verts) {
+  let inside = false;
+  for (let i = 0, j = idx.length - 1; i < idx.length; j = i++) {
+    const a = verts[idx[i]];
+    const b = verts[idx[j]];
+    if (
+      (a[1] > p[1]) !== (b[1] > p[1]) &&
+      p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }
 
 function onPointerDown(ev) {

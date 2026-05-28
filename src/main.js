@@ -1,16 +1,16 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=dfbbef36';
-import { randomSeed } from './rng.js?v=dfbbef36';
-import { drawMesh, drawDualCells } from './render2d.js?v=dfbbef36';
-import { createControls, setSeedDisplay } from './controls.js?v=dfbbef36';
-import { buildHalfEdge } from './halfedge.js?v=dfbbef36';
-import { extractDualCells, hitTestVertex } from './dual.js?v=dfbbef36';
-import { createState } from './state.js?v=dfbbef36';
-import { initTabs } from './tabs.js?v=dfbbef36';
-import { createHeights } from './structures/heights.js?v=dfbbef36';
-import { initView3d, drawView3d, markView3dDirty } from './gl/view3d.js?v=dfbbef36';
+import { generateMesh, makeRelaxer } from './grid.js?v=2b44eac3';
+import { randomSeed } from './rng.js?v=2b44eac3';
+import { drawMesh, drawDualCells } from './render2d.js?v=2b44eac3';
+import { createControls, setSeedDisplay } from './controls.js?v=2b44eac3';
+import { buildHalfEdge } from './halfedge.js?v=2b44eac3';
+import { extractDualCells, hitTestVertex } from './dual.js?v=2b44eac3';
+import { createState } from './state.js?v=2b44eac3';
+import { initTabs } from './tabs.js?v=2b44eac3';
+import { createHeights } from './structures/heights.js?v=2b44eac3';
+import { initView3d, drawView3d, markView3dDirty } from './gl/view3d.js?v=2b44eac3';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -133,10 +133,13 @@ function buildConnectivity() {
     for (let i = 0; i < dualCells.length; i += 3) {
       cornerState.set(dualCells[i].vertexIndex, true);
     }
-    // Deterministic stepping so 3D screenshots show RAISED columns (not a flat
-    // floor): every 6th interior cell gets height 2, every 12th gets height 3.
-    for (let i = 0; i < dualCells.length; i += 6) {
-      heights.set(dualCells[i].vertexIndex, i % 12 === 0 ? 3 : 2);
+    // Deterministic FLAT-topped blocks so 3D screenshots show buildings (not
+    // spikes): raise the 4 corners of every Nth quad together to a common height.
+    for (let i = 0; i < currentMesh.quads.length; i += 5) {
+      const h = i % 15 === 0 ? 3 : i % 10 === 0 ? 2 : 1;
+      for (const vi of currentMesh.quads[i]) {
+        heights.set(vi, Math.max(heights.get(vi), h));
+      }
     }
   }
 

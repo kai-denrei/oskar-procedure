@@ -6,7 +6,7 @@
 // Pure-ish: depends only on mat4 (no DOM/GL). The eye is derived from spherical
 // coords; viewMatrix() is lookAt(eye, target, +z).
 
-import { perspective, lookAt } from './mat4.js?v=dfbbef36';
+import { perspective, lookAt } from './mat4.js?v=2b44eac3';
 
 const DEG = Math.PI / 180;
 const MIN_EL = 5 * DEG;
