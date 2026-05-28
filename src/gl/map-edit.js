@@ -31,3 +31,36 @@ export function cellAt(mesh, x, y) {
   }
   return -1;
 }
+
+// Mean of a quad's 4 corner positions (planar xy).
+export function cellCentroid(mesh, cellIdx) {
+  const q = mesh.quads[cellIdx], v = mesh.vertices;
+  let x = 0, y = 0;
+  for (let i = 0; i < 4; i++) { x += v[q[i]][0]; y += v[q[i]][1]; }
+  return [x / 4, y / 4];
+}
+
+// Min distance from the centroid to the 4 edges — a safe "inside" radius.
+export function cellInradius(mesh, cellIdx) {
+  const q = mesh.quads[cellIdx], v = mesh.vertices;
+  const [cx, cy] = cellCentroid(mesh, cellIdx);
+  let min = Infinity;
+  for (let i = 0; i < 4; i++) {
+    const a = v[q[i]], b = v[q[(i + 1) % 4]];
+    const ex = b[0] - a[0], ey = b[1] - a[1];
+    const len = Math.hypot(ex, ey) || 1;
+    // perpendicular distance from centroid to the (infinite) edge line
+    const d = Math.abs((cx - a[0]) * ey - (cy - a[1]) * ex) / len;
+    if (d < min) min = d;
+  }
+  return Number.isFinite(min) ? min : 0;
+}
+
+// The cell's surface height (floors) = the max of its 4 corner heights.
+// `heights` is a plain number[] per vertex.
+export function cellTopHeight(mesh, cellIdx, heights) {
+  const q = mesh.quads[cellIdx];
+  let m = 0;
+  for (let i = 0; i < 4; i++) { const h = heights[q[i]] || 0; if (h > m) m = h; }
+  return m;
+}
