@@ -1,22 +1,22 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=d5410cfc';
-import { randomSeed } from './rng.js?v=d5410cfc';
-import { drawMesh, drawDualCells } from './render2d.js?v=d5410cfc';
-import { createControls, setSeedDisplay } from './controls.js?v=d5410cfc';
-import { buildHalfEdge } from './halfedge.js?v=d5410cfc';
-import { extractDualCells, hitTestVertex } from './dual.js?v=d5410cfc';
-import { createState } from './state.js?v=d5410cfc';
-import { initTabs } from './tabs.js?v=d5410cfc';
-import { createHeights } from './structures/heights.js?v=d5410cfc';
-import { BIOMES, getBiome } from './structures/biomes.js?v=d5410cfc';
-import { generateDecorations } from './structures/decorations.js?v=d5410cfc';
-import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=d5410cfc';
-import { createTerrainControls } from './gl/terrain-controls.js?v=d5410cfc';
-import { createHexMap } from './structures/hexmap.js?v=d5410cfc';
-import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty } from './gl/map-view.js?v=d5410cfc';
-import { createMapControls } from './gl/map-controls.js?v=d5410cfc';
+import { generateMesh, makeRelaxer } from './grid.js?v=f9d2abf8';
+import { randomSeed } from './rng.js?v=f9d2abf8';
+import { drawMesh, drawDualCells } from './render2d.js?v=f9d2abf8';
+import { createControls, setSeedDisplay } from './controls.js?v=f9d2abf8';
+import { buildHalfEdge } from './halfedge.js?v=f9d2abf8';
+import { extractDualCells, hitTestVertex } from './dual.js?v=f9d2abf8';
+import { createState } from './state.js?v=f9d2abf8';
+import { initTabs } from './tabs.js?v=f9d2abf8';
+import { createHeights } from './structures/heights.js?v=f9d2abf8';
+import { BIOMES, getBiome } from './structures/biomes.js?v=f9d2abf8';
+import { generateDecorations } from './structures/decorations.js?v=f9d2abf8';
+import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=f9d2abf8';
+import { createTerrainControls } from './gl/terrain-controls.js?v=f9d2abf8';
+import { createHexMap } from './structures/hexmap.js?v=f9d2abf8';
+import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty } from './gl/map-view.js?v=f9d2abf8';
+import { createMapControls } from './gl/map-controls.js?v=f9d2abf8';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
