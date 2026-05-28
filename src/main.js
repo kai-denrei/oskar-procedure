@@ -1,19 +1,19 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=e8cc32be';
-import { randomSeed } from './rng.js?v=e8cc32be';
-import { drawMesh, drawDualCells } from './render2d.js?v=e8cc32be';
-import { createControls, setSeedDisplay } from './controls.js?v=e8cc32be';
-import { buildHalfEdge } from './halfedge.js?v=e8cc32be';
-import { extractDualCells, hitTestVertex } from './dual.js?v=e8cc32be';
-import { createState } from './state.js?v=e8cc32be';
-import { initTabs } from './tabs.js?v=e8cc32be';
-import { createHeights } from './structures/heights.js?v=e8cc32be';
-import { BIOMES, getBiome } from './structures/biomes.js?v=e8cc32be';
-import { generateDecorations } from './structures/decorations.js?v=e8cc32be';
-import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange } from './gl/view3d.js?v=e8cc32be';
-import { createTerrainControls } from './gl/terrain-controls.js?v=e8cc32be';
+import { generateMesh, makeRelaxer } from './grid.js?v=013d47e9';
+import { randomSeed } from './rng.js?v=013d47e9';
+import { drawMesh, drawDualCells } from './render2d.js?v=013d47e9';
+import { createControls, setSeedDisplay } from './controls.js?v=013d47e9';
+import { buildHalfEdge } from './halfedge.js?v=013d47e9';
+import { extractDualCells, hitTestVertex } from './dual.js?v=013d47e9';
+import { createState } from './state.js?v=013d47e9';
+import { initTabs } from './tabs.js?v=013d47e9';
+import { createHeights } from './structures/heights.js?v=013d47e9';
+import { BIOMES, getBiome } from './structures/biomes.js?v=013d47e9';
+import { generateDecorations } from './structures/decorations.js?v=013d47e9';
+import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=013d47e9';
+import { createTerrainControls } from './gl/terrain-controls.js?v=013d47e9';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -218,16 +218,10 @@ function applyTerrain() {
 // from the mesh planar extent + the current max height so framing accounts for
 // tall terrain even before the next geometry rebuild runs.
 function reframeCamera() {
-  const cam = getCamera();
-  if (!cam || !currentMesh || !currentMesh.vertices || !currentMesh.vertices.length) return;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const [x, y] of currentMesh.vertices) {
-    if (x < minX) minX = x; if (x > maxX) maxX = x;
-    if (y < minY) minY = y; if (y > maxY) maxY = y;
-  }
-  if (!Number.isFinite(minX)) return;
-  const maxZ = (heights ? heights.max() : 0) * 0.06;
-  cam.reframe({ min: [minX, minY, 0], max: [maxX, maxY, Math.max(maxZ, 0.06)] });
+  // Defer to view3d: it reframes on the TRUE built geometry bounds (the full
+  // terrain height + slab, not an approximation) on its next rebuild, so a tile
+  // is reliably centered — independent of when heights/geometry settle.
+  requestView3dReframe();
 }
 
 // For each painted dual cell, ensure heights.get(vertexIndex) >= 1. Idempotent.

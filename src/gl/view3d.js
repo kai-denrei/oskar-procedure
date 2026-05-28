@@ -8,10 +8,10 @@
 //   resizeView3d()                            re-measure on tab switch / resize
 //   markView3dDirty()                         force a geometry rebuild next draw
 
-import { createRenderer } from './renderer.js?v=e8cc32be';
-import { createCamera } from './camera.js?v=e8cc32be';
-import { multiply, invert, transformPoint } from './mat4.js?v=e8cc32be';
-import { buildSceneGeometry } from '../structures/geometry.js?v=e8cc32be';
+import { createRenderer } from './renderer.js?v=013d47e9';
+import { createCamera } from './camera.js?v=013d47e9';
+import { multiply, invert, transformPoint } from './mat4.js?v=013d47e9';
+import { buildSceneGeometry } from '../structures/geometry.js?v=013d47e9';
 
 const FLOOR_H = 0.06; // world-units per floor (matches relax SIDE_LENGTH)
 
@@ -41,7 +41,7 @@ let dirty = true;
 let lastMeshRef = null;
 let lastHeightsRef = null;
 let lastHeightsMax = -1;
-let framedOnce = false;
+let reframePending = true; // reframe on the next rebuild (first load + view-reset events)
 
 // World-space bounds of the last-built scene — used to soft-clamp panning so
 // the user can't lose the patch entirely. Refreshed every rebuildGeometry().
@@ -70,6 +70,14 @@ export function markView3dDirty() {
   dirty = true;
 }
 
+// Request a camera reframe on the next geometry rebuild — for view-reset events
+// (first load, randomize, biome/orientation change). Centers on the TRUE built
+// bounds. Forces a rebuild so the reframe actually runs even if heights are same.
+export function requestView3dReframe() {
+  reframePending = true;
+  dirty = true;
+}
+
 function aspect() {
   if (!canvas) return 1;
   return canvas.width > 0 && canvas.height > 0 ? canvas.width / canvas.height : 1;
@@ -90,10 +98,13 @@ function rebuildGeometry() {
   lastHeightsMax = heights ? heights.max() : -1;
   currentBounds = cachedGeom && cachedGeom.bounds ? cachedGeom.bounds : null;
 
-  // First time we have real geometry, frame the camera on its bounds.
-  if (!framedOnce && cachedGeom && cachedGeom.triangleCount > 0 && camera) {
+  // Reframe on the FRESH geometry bounds whenever a view-reset was requested
+  // (first load, randomize, biome/orientation change). Uses the true built bounds
+  // (incl. terrain height + slab), so a tile is always centered. Drag-to-build
+  // only marks dirty (no reframe), preserving the user's pan/zoom.
+  if (reframePending && cachedGeom && cachedGeom.triangleCount > 0 && camera) {
     camera.frameBounds(cachedGeom.bounds);
-    framedOnce = true;
+    reframePending = false;
   }
 }
 
