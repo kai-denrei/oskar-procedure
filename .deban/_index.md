@@ -47,7 +47,13 @@ viewable live on localhost. M3–M5 (deformed tiles, 3D extrude, WFC) are follow
    - **M3D-1** ✅ DONE 2026-05-28: WebGL2 renderer (mat4, orbit camera, Lambert shading, depth+cull) + height field + click-to-raise extruded columns. `src/gl/{mat4,camera,renderer,view3d}.js` + `src/structures/{heights,geometry}.js`. iso modules retired. 125/125 tests. ⚠ raised cells read as **spikes** (per-vertex height tents the 4 incident quads) — open question before M3D-2 (see [[pm]]).
    - **3D tab variation** (2026-05-28): reworked into a **fixed-isometric (orthographic) terrain playground** — orbit removed, camera locked to true iso; panel with Zoom / Orientation (N/E/S/W) / Randomize / Height / Roughness / Flatten; procedural value-noise terrain + drag-to-build. Shares the per-vertex height field (corner-state intact). `src/structures/terrain.js`, `src/gl/terrain-controls.js`, ortho camera.
    - **Biomes + decorations + pan** (2026-05-28): 6 biomes (`src/structures/biomes.js`) — Dunes (amber sine waves), Mountains (grey ridged), Forest (green + cone-trees), Meadows (low green + flowers + ponds), Swamps (water plane + olive hummocks), Quarry (terracotta terraced pit). Lite decorations (`src/structures/decorations.js`: trees/flowers/ponds/water/reeds). Camera-centering fix (frames z-range, no clip). WASD + two-finger pan; wheel/pinch zoom kept. 160/160 tests.
-   - M3D-2 (MC reduction + trilinear, placeholder meshes) → M3D-3 (15 authored tiles) → M3D-4 (specials + WFC) — next (tiles deform onto the terrain columns).
+   - M3D-2 (MC reduction + trilinear, placeholder meshes) → M3D-3 (15 authored tiles) → M3D-4 (specials + WFC) — open (tiles deform onto the terrain columns).
+6. **Hexagon Map** (Catan board) — SPEC'd 2026-05-28, awaiting review. New **Map tab**: board of distinct abutting biome hex-tiles (default 19 = radius-2, configurable), per-tile unique grids, water surround, right-click-a-tile→change biome. Tiles abut gap-free thanks to the pinned regular-hexagon boundary. Spec: `docs/specs/2026-05-28-hexagon-map-design.md`. MAP-1 (board) + MAP-2 (retype).
+
+## Future features (backlog)
+- **Seamless-mesh tiles** — stitch adjacent hex tiles' shared boundaries into one continuous landscape (the original "infinite irregular quad grid" idea). Deferred in favor of the distinct-tile Catan board; revisit after the Map ships. Needs shared-boundary vertex dedup + joint/pinned relaxation across tiles. (Operator: "log it as a potential feature.")
+- **3D structures M3D-2..4** — the marching-cubes building tiles on the height field (separate from terrain).
+- **Decoration polish (Round 2)** — authored multi-shape trees, animated water, denser flowers/reeds, rocks on mountains.
 
 ## Open Questions (cross-role)
 - ES modules do not load over `file://` in Chrome/Firefox — V1 needs a static server. The HANDOVER's "ideally file://" is partly unrealistic for module scripts. See [[arch]].
