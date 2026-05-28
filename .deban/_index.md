@@ -43,7 +43,7 @@ viewable live on localhost. M3–M5 (deformed tiles, 3D extrude, WFC) are follow
 2. **H2 — connected patches** (chosen direction: incremental patch-adding / pinned boundaries). Needs a pan/zoom camera. Spec later.
 3. **H3 — true infinite streaming** (research; only if "literally endless" is wanted).
 4. **3D tab — isometric grid "floor"** ✅ DONE 2026-05-28: Canvas2D iso (no WebGL). `src/iso.js` (projection, 12 tests) + `src/render-iso.js` (depth-sorted slab walls + grid + painted cells) + `src/iso-view.js` (drag-to-rotate, per-frame fit). Shares the Grid tab's mesh. 111/111 tests. Spec: `docs/specs/2026-05-28-3d-floor-tab-design.md`.
-5. **3D structures** (deferred, research): corner-state in 3D — 2⁸=256 configs → ~15 marching-cubes canonical families, trilinear-deformed, dovetailing. Separate spec. Sits on the floor from (4).
+5. **3D structures** — SPEC'd 2026-05-28, awaiting review. Operator chose the **full-3D-15 marching-cubes** model on a **hand-written WebGL** renderer + click-to-raise (over the recommended 2.5D-6). Decomposed M3D-1 (WebGL foundation + build-by-stacking) → M3D-2 (MC reduction + trilinear, placeholder meshes) → M3D-3 (15 authored tiles) → M3D-4 (specials + WFC). Spec: `docs/specs/2026-05-28-3d-structures-webgl-design.md`. **Supersedes the Canvas2D iso floor (4)** for the 3D tab.
 
 ## Open Questions (cross-role)
 - ES modules do not load over `file://` in Chrome/Firefox — V1 needs a static server. The HANDOVER's "ideally file://" is partly unrealistic for module scripts. See [[arch]].
