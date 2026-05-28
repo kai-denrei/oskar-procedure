@@ -1,23 +1,23 @@
 // main.js — bootstrap: DPI-correct canvas, RAF animation loop, grid wiring.
 // M1: renders the organic quad grid with animated relaxation.
 
-import { generateMesh, makeRelaxer } from './grid.js?v=f9d2abf8';
-import { randomSeed } from './rng.js?v=f9d2abf8';
-import { drawMesh, drawDualCells } from './render2d.js?v=f9d2abf8';
-import { createControls, setSeedDisplay } from './controls.js?v=f9d2abf8';
-import { buildHalfEdge } from './halfedge.js?v=f9d2abf8';
-import { extractDualCells, hitTestVertex } from './dual.js?v=f9d2abf8';
-import { createState } from './state.js?v=f9d2abf8';
-import { initTabs } from './tabs.js?v=f9d2abf8';
-import { createHeights } from './structures/heights.js?v=f9d2abf8';
-import { BIOMES, getBiome } from './structures/biomes.js?v=f9d2abf8';
-import { generateDecorations } from './structures/decorations.js?v=f9d2abf8';
-import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=f9d2abf8';
-import { createTerrainControls } from './gl/terrain-controls.js?v=f9d2abf8';
-import { createHexMap } from './structures/hexmap.js?v=f9d2abf8';
-import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused, enterFocus } from './gl/map-view.js?v=f9d2abf8';
-import { createMapControls } from './gl/map-controls.js?v=f9d2abf8';
-import { createMapEditControls } from './gl/map-edit-controls.js';
+import { generateMesh, makeRelaxer } from './grid.js?v=02391cf2';
+import { randomSeed } from './rng.js?v=02391cf2';
+import { drawMesh, drawDualCells } from './render2d.js?v=02391cf2';
+import { createControls, setSeedDisplay } from './controls.js?v=02391cf2';
+import { buildHalfEdge } from './halfedge.js?v=02391cf2';
+import { extractDualCells, hitTestVertex } from './dual.js?v=02391cf2';
+import { createState } from './state.js?v=02391cf2';
+import { initTabs } from './tabs.js?v=02391cf2';
+import { createHeights } from './structures/heights.js?v=02391cf2';
+import { BIOMES, getBiome } from './structures/biomes.js?v=02391cf2';
+import { generateDecorations } from './structures/decorations.js?v=02391cf2';
+import { initView3d, drawView3d, markView3dDirty, getCamera, setOnZoomChange, setSceneExtras, setOnCameraChange, requestView3dReframe } from './gl/view3d.js?v=02391cf2';
+import { createTerrainControls } from './gl/terrain-controls.js?v=02391cf2';
+import { createHexMap } from './structures/hexmap.js?v=02391cf2';
+import { initMapView, drawMapView, getMapCamera, setMapOnZoomChange, setMapOnCameraChange, setMapOnRetype, requestMapReframe, clearMapCache, markMapDirty, setMapOnFocusChange, setMapTool, exitFocus, isFocused, enterFocus } from './gl/map-view.js?v=02391cf2';
+import { createMapControls } from './gl/map-controls.js?v=02391cf2';
+import { createMapEditControls } from './gl/map-edit-controls.js?v=02391cf2';
 
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -647,7 +647,10 @@ if (DEMO && typeof window !== 'undefined') {
   const focusParam = new URLSearchParams(location.search).get('focus');
   if (focusParam) {
     const [qs, rs] = focusParam.split(',');
-    window.__mapFocus(parseInt(qs, 10), parseInt(rs, 10));
+    // Defer until after the first render frame sets map-view's liveMap (enterFocus needs it).
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.__mapFocus(parseInt(qs, 10), parseInt(rs, 10));
+    }));
   }
 }
 
