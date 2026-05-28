@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cellAt, cellCentroid, cellInradius, cellTopHeight, bakeIfNeeded, sculpt, buildFocusGeometry, FLOOR_H, placeObject } from '../src/gl/map-edit.js';
+import { cellAt, cellCentroid, cellInradius, cellTopHeight, bakeIfNeeded, sculpt, buildFocusGeometry, FLOOR_H, placeObject, eraseAt, nearestObject } from '../src/gl/map-edit.js';
 import { generateMesh, relax } from '../src/grid.js';
 
 function patch(seed) {
@@ -133,4 +133,27 @@ test('placeObject returns false off-cell (no append)', () => {
   const ok = placeObject(tile, 'tree', m, [999, 999]);
   assert.equal(ok, false);
   assert.equal(tile.edit.objects.length, 0);
+});
+
+// Task 15: objectPos + nearestObject + eraseAt
+test('eraseAt removes the nearest object within radius and bumps epoch', () => {
+  const m = patch(7);
+  const [cx, cy] = cellCentroid(m, 0);
+  const tile = { biomeId: 'meadows', seed: 7, edit: { heights: [0,0,0,0,0,0],
+    objects: [{ type:'tree', cell:0, x:cx, y:cy, z:0 }], epoch: 5 } };
+  const ok = eraseAt(tile, m, [cx, cy], 0.5);
+  assert.equal(ok, true);
+  assert.equal(tile.edit.objects.length, 0);
+  assert.equal(tile.edit.epoch, 6);
+});
+
+test('eraseAt is a no-op when nothing is within radius', () => {
+  const m = patch(7);
+  const [cx, cy] = cellCentroid(m, 0);
+  const tile = { biomeId: 'meadows', seed: 7, edit: { heights: [0,0,0,0,0,0],
+    objects: [{ type:'tree', cell:0, x:cx, y:cy, z:0 }], epoch: 5 } };
+  const ok = eraseAt(tile, m, [cx + 100, cy], 0.01);
+  assert.equal(ok, false);
+  assert.equal(tile.edit.objects.length, 1);
+  assert.equal(tile.edit.epoch, 5);
 });

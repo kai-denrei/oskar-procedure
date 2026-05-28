@@ -145,6 +145,35 @@ export function placeObject(tile, type, mesh, point) {
   return true;
 }
 
+// An object's planar position. xy-records use x,y; cell-only records (water)
+// use their cell centroid.
+export function objectPos(mesh, o) {
+  if (typeof o.x === 'number' && typeof o.y === 'number') return [o.x, o.y];
+  const cell = Number.isInteger(o.cell) ? o.cell : (o.quadIndex | 0);
+  return cellCentroid(mesh, cell);
+}
+
+// Index + distance of the nearest object to [x,y], or { index:-1 }.
+export function nearestObject(tile, mesh, point) {
+  let best = -1, bestD = Infinity;
+  const objs = tile.edit.objects;
+  for (let i = 0; i < objs.length; i++) {
+    const [ox, oy] = objectPos(mesh, objs[i]);
+    const d = Math.hypot(point[0] - ox, point[1] - oy);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return { index: best, dist: bestD };
+}
+
+// Remove the nearest object within `radius` of [x,y]. Returns true if removed.
+export function eraseAt(tile, mesh, point, radius) {
+  const { index, dist } = nearestObject(tile, mesh, point);
+  if (index < 0 || dist > radius) return false;
+  tile.edit.objects.splice(index, 1);
+  tile.edit.epoch++;
+  return true;
+}
+
 // Refresh each object's z to its cell's current surface top (objects ride
 // terrain) and build the focused tile's geometry, centered at the tile's own
 // origin (NOT translated to tile.center — the board view does that).
