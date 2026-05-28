@@ -2,9 +2,9 @@
 // mode. NO DOM, NO GL (Node-testable). The focus SHELL (camera/input/panel)
 // lives in map-view.js / main.js; this module owns the data transforms.
 
-import { buildSceneGeometry } from '../structures/geometry.js';
-import { getBiome } from '../structures/biomes.js';
-import { generateDecorations } from '../structures/decorations.js';
+import { buildSceneGeometry } from '../structures/geometry.js?v=02391cf2';
+import { getBiome } from '../structures/biomes.js?v=02391cf2';
+import { generateDecorations } from '../structures/decorations.js?v=02391cf2';
 
 export const FLOOR_H = 0.06;            // world units per floor (matches map-view)
 

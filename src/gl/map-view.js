@@ -21,15 +21,15 @@
 //   markMapDirty()               force a full rebuild next draw
 //   getMapCamera()               expose camera for the panel zoom/orientation
 
-import { createRenderer } from './renderer.js?v=f9d2abf8';
-import { createCamera } from './camera.js?v=f9d2abf8';
-import { multiply, invert, transformPoint } from './mat4.js?v=f9d2abf8';
-import { generateMesh, relax } from '../grid.js?v=f9d2abf8';
-import { getBiome, BIOMES } from '../structures/biomes.js?v=f9d2abf8';
-import { createHeights } from '../structures/heights.js?v=f9d2abf8';
-import { generateDecorations } from '../structures/decorations.js?v=f9d2abf8';
-import { buildSceneGeometry } from '../structures/geometry.js?v=f9d2abf8';
-import { bakeIfNeeded, buildFocusGeometry, cellAt, sculpt as editSculpt } from './map-edit.js';
+import { createRenderer } from './renderer.js?v=02391cf2';
+import { createCamera } from './camera.js?v=02391cf2';
+import { multiply, invert, transformPoint } from './mat4.js?v=02391cf2';
+import { generateMesh, relax } from '../grid.js?v=02391cf2';
+import { getBiome, BIOMES } from '../structures/biomes.js?v=02391cf2';
+import { createHeights } from '../structures/heights.js?v=02391cf2';
+import { generateDecorations } from '../structures/decorations.js?v=02391cf2';
+import { buildSceneGeometry } from '../structures/geometry.js?v=02391cf2';
+import { bakeIfNeeded, buildFocusGeometry, cellAt, sculpt as editSculpt } from './map-edit.js?v=02391cf2';
 
 const FLOOR_H = 0.06; // world-units per floor (matches view3d / relax SIDE_LENGTH)
 // Sea plane sits just under the tiles' base slab so the land reads as islands
