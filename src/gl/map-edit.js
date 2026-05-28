@@ -5,10 +5,8 @@
 import { buildSceneGeometry } from '../structures/geometry.js';
 import { getBiome } from '../structures/biomes.js';
 import { generateDecorations } from '../structures/decorations.js';
-import { getObjectDef } from '../structures/objects.js';
 
 export const FLOOR_H = 0.06;            // world units per floor (matches map-view)
-export const ERASE_RADIUS_FACTOR = 0.6; // × cell inradius
 
 // Sign of the 2D cross product (b-a)×(p-a).
 function side(a, b, p) {
@@ -17,6 +15,7 @@ function side(a, b, p) {
 
 // Index of the (convex) quad containing (x,y), or -1. A point is inside a CCW
 // convex quad when it is on the left (>=0) of all four directed edges.
+// Points on a shared edge match the first quad in quads[] order (deterministic).
 export function cellAt(mesh, x, y) {
   const { vertices, quads } = mesh;
   const p = [x, y];
@@ -108,8 +107,10 @@ export function bakeIfNeeded(tile, mesh) {
 // Raise (dir=+1) or lower (dir=-1) a cell to a FLAT block one floor from its
 // current top, clamped to [0, maxHeight]. Sets all 4 corners equal (terracing
 // look, matches the 3D playground). Bumps epoch. Mutates tile.edit.heights.
+// (dir >= 0 raises, dir < 0 lowers)
 export function sculpt(tile, cellIdx, dir, maxHeight, mesh) {
   const e = tile.edit;
+  if (!e || cellIdx < 0 || cellIdx >= mesh.quads.length) return -1;
   const q = mesh.quads[cellIdx];
   const top = cellTopHeight(mesh, cellIdx, e.heights);
   let target = top + (dir >= 0 ? 1 : -1);
@@ -124,7 +125,7 @@ export function sculpt(tile, cellIdx, dir, maxHeight, mesh) {
 // terrain) and build the focused tile's geometry, centered at the tile's own
 // origin (NOT translated to tile.center — the board view does that).
 export function buildFocusGeometry(tile, mesh) {
-  const e = tile.edit;
+  const e = bakeIfNeeded(tile, mesh); // idempotent — safe; removes the hidden "must bake first" precondition
   const biome = getBiome(tile.biomeId);
   for (const o of e.objects) {
     if (Number.isInteger(o.cell)) {
