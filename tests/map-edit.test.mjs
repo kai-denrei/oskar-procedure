@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cellAt, cellCentroid, cellInradius, cellTopHeight, bakeIfNeeded } from '../src/gl/map-edit.js';
+import { cellAt, cellCentroid, cellInradius, cellTopHeight, bakeIfNeeded, sculpt } from '../src/gl/map-edit.js';
 import { generateMesh, relax } from '../src/grid.js';
 
 function patch(seed) {
@@ -53,6 +53,28 @@ test('bakeIfNeeded populates heights+objects+epoch and is idempotent', () => {
   // idempotent: a second call returns the same object, does not re-bake.
   const again = bakeIfNeeded(tile, m);
   assert.equal(again, edit, 'same edit object reused');
+});
+
+test('sculpt raises a cell\'s 4 corners to a flat block, clamped to maxHeight', () => {
+  // mesh quad 0 = verts [0,1,2,3]
+  const tile = { edit: { heights: [0,0,0,0,0,0], objects: [], epoch: 1 } };
+  sculpt(tile, 0, +1, 3, mesh);              // raise
+  assert.deepEqual(tile.edit.heights.slice(0,4), [1,1,1,1]);
+  assert.equal(tile.edit.epoch, 2, 'epoch bumped');
+  // raise to the cap and no further
+  sculpt(tile, 0, +1, 3, mesh);
+  sculpt(tile, 0, +1, 3, mesh);
+  sculpt(tile, 0, +1, 3, mesh);              // would be 4, clamps at 3
+  assert.deepEqual(tile.edit.heights.slice(0,4), [3,3,3,3]);
+});
+
+test('sculpt lowers to a flat block, clamped at 0', () => {
+  const tile = { edit: { heights: [2,2,3,1,0,0], objects: [], epoch: 1 } };
+  sculpt(tile, 0, -1, 7, mesh);              // top=max(2,2,3,1)=3 → 2, flatten
+  assert.deepEqual(tile.edit.heights.slice(0,4), [2,2,2,2]);
+  // lower repeatedly never goes below 0
+  for (let i=0;i<5;i++) sculpt(tile, 0, -1, 7, mesh);
+  assert.deepEqual(tile.edit.heights.slice(0,4), [0,0,0,0]);
 });
 
 test('baked objects carry a cell index (so they can ride terrain)', () => {

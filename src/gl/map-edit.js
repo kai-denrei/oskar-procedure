@@ -104,3 +104,18 @@ export function bakeIfNeeded(tile, mesh) {
   tile.edit = { heights, objects, epoch: 1 };
   return tile.edit;
 }
+
+// Raise (dir=+1) or lower (dir=-1) a cell to a FLAT block one floor from its
+// current top, clamped to [0, maxHeight]. Sets all 4 corners equal (terracing
+// look, matches the 3D playground). Bumps epoch. Mutates tile.edit.heights.
+export function sculpt(tile, cellIdx, dir, maxHeight, mesh) {
+  const e = tile.edit;
+  const q = mesh.quads[cellIdx];
+  const top = cellTopHeight(mesh, cellIdx, e.heights);
+  let target = top + (dir >= 0 ? 1 : -1);
+  if (target < 0) target = 0;
+  if (target > maxHeight) target = maxHeight;
+  for (let i = 0; i < 4; i++) e.heights[q[i]] = target;
+  e.epoch++;
+  return target;
+}
